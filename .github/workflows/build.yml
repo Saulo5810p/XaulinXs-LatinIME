@@ -15,7 +15,8 @@ jobs:
       # Versões fixadas de propósito: NDK e CMake não devem seguir "latest",
       # para que o build não quebre silenciosamente quando a imagem
       # ubuntu-latest trocar de versão padrão no futuro.
-      NDK_VERSION: "25.2.9519653"
+      # NDK 28.2.13676358 é a versão padrão esperada pelo AGP 9.1.0.
+      NDK_VERSION: "28.2.13676358"
       CMAKE_VERSION: "3.22.1"
 
     steps:
@@ -31,8 +32,10 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK ${{ env.NDK_VERSION }} and CMake ${{ env.CMAKE_VERSION }}
+      - name: Install SDK platform, NDK ${{ env.NDK_VERSION }} and CMake ${{ env.CMAKE_VERSION }}
         run: |
+          sdkmanager --install "platforms;android-36"
+          sdkmanager --install "build-tools;36.0.0"
           sdkmanager --install "ndk;${NDK_VERSION}"
           sdkmanager --install "cmake;${CMAKE_VERSION}"
 
@@ -41,12 +44,12 @@ jobs:
 
       - name: Clear any stale Gradle cache
         run: rm -rf ~/.gradle/wrapper ~/.gradle/caches
-        # Garante que o Gradle 8.9 e os jars do AGP 8.7.0 sejam baixados do
-        # zero nesta execução. O erro NoClassDefFoundError: BuildCompletionListener
-        # é um sintoma clássico de download/cache corrompido do Gradle ou do
-        # AGP (ex.: timeout de rede truncando o zip/jar) — não uma
-        # incompatibilidade real de versões, já que AGP 8.7 espera Gradle 8.9,
-        # que é exatamente o que está configurado.
+        # Precaução geral para garantir download limpo do Gradle/AGP nesta
+        # execução (não é mais a causa raiz suspeita — ver histórico do
+        # projeto: a causa real do erro BuildCompletionListener foi a
+        # combinação legada AGP 8.7/Gradle 8.9, resolvida migrando para o
+        # par atual AGP 9.1.0 + Gradle 9.1.0, que é o par oficialmente
+        # suportado neste momento).
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace --refresh-dependencies --no-daemon
