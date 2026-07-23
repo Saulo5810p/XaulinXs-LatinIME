@@ -18,7 +18,7 @@
     package="com.android.inputmethod.latin.tests"
     android:versionCode="30">
 
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="30" />
+    <!-- <uses-sdk> removida: ver java/AndroidManifest.xml para explicação. -->
 
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 

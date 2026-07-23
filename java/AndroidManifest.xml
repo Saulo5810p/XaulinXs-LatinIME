@@ -19,8 +19,10 @@
      package="com.android.inputmethod.latin"
      android:versionCode="30">
 
-    <uses-sdk android:minSdkVersion="21"
-         android:targetSdkVersion="30"/>
+    <!-- <uses-sdk> removida: a partir do AGP 9.0.0, minSdk/targetSdk não podem
+         mais ser controlados pelo manifest, apenas pelo build.gradle
+         (defaultConfig.minSdkVersion / targetSdkVersion), que já define
+         minSdk 28 / targetSdk 34. -->
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION"/>
