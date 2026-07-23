@@ -15,6 +15,11 @@ android {
     compileSdk 36
     ndkVersion '28.2.13676358'
 
+    // Projeto é 100% Java (sem fontes Kotlin) — desativa o Kotlin embutido
+    // que o AGP 9 habilita por padrão em todos os módulos, evitando a task
+    // de compilação Kotlin e a dependência automática na stdlib do Kotlin.
+    enableKotlin = false
+
     // Required if using classes in android.test.runner
     useLibrary 'android.test.runner'
 
@@ -48,7 +53,7 @@ android {
             minifyEnabled false
         }
         release {
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard.flags'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard.flags'
         }
     }
 
