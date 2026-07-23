@@ -98,6 +98,13 @@ repositories {
 }
 
 dependencies {
+    // Declarado explicitamente em versão recente: sem isso, o Gradle resolvia
+    // uma versão antiga de androidx.core:core trazida transitivamente por
+    // androidx.legacy:legacy-support-v4 (de 2018), que não tinha ainda
+    // AccessibilityNodeInfoCompat.setTextEntryKey() — API adicionada ao
+    // AccessibilityNodeInfo do framework no Android Q (API 29) e só exposta
+    // no compat em versões mais novas de androidx.core.
+    implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation 'com.google.code.findbugs:jsr305:3.0.2'
 
