@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- XaulinXs Foundry: interface própria de digitação por voz, substitui o
+     teclado temporariamente enquanto ouve, com estados visuais claros
+     (ouvindo / processando / erro) em vez do RecognizerIntent padrão do
+     Android. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#F5F5F5"
+    android:paddingTop="24dp"
+    android:paddingBottom="24dp"
+    android:minHeight="200dp">
+
+    <ImageView
+        android:id="@+id/xaulinxs_voice_mic_icon"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:src="@drawable/sym_keyboard_voice_lxx_dark"
+        android:contentDescription="@string/xaulinxs_voice_listening" />
+
+    <TextView
+        android:id="@+id/xaulinxs_voice_status_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:textSize="14sp"
+        android:text="@string/xaulinxs_voice_listening" />
+
+    <TextView
+        android:id="@+id/xaulinxs_voice_partial_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:gravity="center"
+        android:textSize="16sp"
+        android:textStyle="italic"
+        android:minLines="1"
+        android:maxLines="2" />
+
+    <Button
+        android:id="@+id/xaulinxs_voice_cancel_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/xaulinxs_voice_cancel" />
+
+</LinearLayout>

@@ -48,6 +48,7 @@ import android.view.Display;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.widget.Toast;
 import android.view.ViewGroup.LayoutParams;
 import android.view.Window;
 import android.view.WindowManager;
@@ -100,6 +101,12 @@ import com.android.inputmethod.latin.utils.StatsUtils;
 import com.android.inputmethod.latin.utils.StatsUtilsManager;
 import com.android.inputmethod.latin.utils.SubtypeLocaleUtils;
 import com.android.inputmethod.latin.utils.ViewLayoutUtils;
+import com.xaulinxs.clipboard.ClipboardHistoryItem;
+import com.xaulinxs.clipboard.ClipboardHistoryManager;
+import com.xaulinxs.clipboard.ClipboardPanelView;
+import com.xaulinxs.voice.VoiceInputManager;
+import com.xaulinxs.voice.VoiceInputOverlayView;
+import com.xaulinxs.voice.VoicePermissionActivity;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -160,6 +167,34 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     private SuggestionStripView mSuggestionStripView;
 
     private RichInputMethodManager mRichImm;
+
+    // ---- XaulinXs Foundry: digitação por voz ----
+    private VoiceInputManager mXaulinXsVoiceInputManager;
+    private VoiceInputOverlayView mXaulinXsVoiceOverlayView;
+    private View mXaulinXsSavedKeyboardView;
+
+    // ---- XaulinXs Foundry: área de transferência ----
+    private ClipboardHistoryManager mXaulinXsClipboardHistoryManager;
+    private ClipboardPanelView mXaulinXsClipboardPanelView;
+    private final BroadcastReceiver mXaulinXsVoicePermissionReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(final Context context, final Intent intent) {
+            try {
+                final boolean granted = intent.getBooleanExtra(
+                        VoicePermissionActivity.EXTRA_GRANTED, false);
+                if (granted) {
+                    startXaulinXsVoiceInput();
+                } else {
+                    Toast.makeText(LatinIME.this, R.string.xaulinxs_voice_no_permission,
+                            Toast.LENGTH_SHORT).show();
+                }
+            } catch (final Exception e) {
+                // Nunca deixa o tratamento do resultado de permissão
+                // derrubar o teclado — na pior hipótese, a digitação por
+                // voz simplesmente não inicia desta vez.
+            }
+        }
+    };
     @UsedForTesting final KeyboardSwitcher mKeyboardSwitcher;
     private final SubtypeState mSubtypeState = new SubtypeState();
     private EmojiAltPhysicalKeyDetector mEmojiAltPhysicalKeyDetector;
@@ -644,6 +679,25 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             registerReceiver(mDictionaryDumpBroadcastReceiver, dictDumpFilter);
         }
 
+        // XaulinXs Foundry: recebe o resultado da solicitação de permissão
+        // de microfone feita via VoicePermissionActivity (o serviço não
+        // pode solicitar permissões diretamente).
+        final IntentFilter voicePermissionFilter =
+                new IntentFilter(VoicePermissionActivity.ACTION_PERMISSION_RESULT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(mXaulinXsVoicePermissionReceiver, voicePermissionFilter,
+                    Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(mXaulinXsVoicePermissionReceiver, voicePermissionFilter);
+        }
+        mXaulinXsVoiceInputManager = new VoiceInputManager(this, new XaulinXsVoiceCallback());
+
+        // XaulinXs Foundry: histórico de área de transferência começa a
+        // escutar assim que o serviço é criado, para capturar cópias
+        // feitas em qualquer app, não só enquanto o painel está aberto.
+        mXaulinXsClipboardHistoryManager = new ClipboardHistoryManager(this);
+        mXaulinXsClipboardHistoryManager.startListening();
+
         final IntentFilter hideSoftInputFilter = new IntentFilter();
         hideSoftInputFilter.addAction(ACTION_HIDE_SOFT_INPUT);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -762,6 +816,20 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         unregisterReceiver(mRingerModeChangeReceiver);
         unregisterReceiver(mDictionaryPackInstallReceiver);
         unregisterReceiver(mDictionaryDumpBroadcastReceiver);
+        // XaulinXs Foundry: mesmo padrão defensivo do resto deste método —
+        // unregisterReceiver pode lançar IllegalArgumentException se o
+        // receiver nunca chegou a ser registrado (ex.: onCreate falhou
+        // antes de chegar lá); protegido para não impedir o resto da
+        // limpeza de rodar.
+        try {
+            unregisterReceiver(mXaulinXsVoicePermissionReceiver);
+        } catch (final IllegalArgumentException ignored) { }
+        if (mXaulinXsVoiceInputManager != null) {
+            mXaulinXsVoiceInputManager.release();
+        }
+        if (mXaulinXsClipboardHistoryManager != null) {
+            mXaulinXsClipboardHistoryManager.stopListening();
+        }
         mStatsUtilsManager.onDestroy(this /* context */);
         super.onDestroy();
     }
@@ -1392,6 +1460,74 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
                 null /* activity */, permission.READ_CONTACTS);
     }
 
+    // ---- XaulinXs Foundry: área de transferência ----
+
+    @Override
+    public void showXaulinXsClipboardPanel() {
+        final View currentView = mKeyboardSwitcher.getMainKeyboardView();
+        if (currentView == null || mXaulinXsClipboardHistoryManager == null) {
+            return;
+        }
+        try {
+            if (mXaulinXsClipboardPanelView == null) {
+                mXaulinXsClipboardPanelView = new ClipboardPanelView(this);
+                mXaulinXsClipboardPanelView.bind(mXaulinXsClipboardHistoryManager,
+                        new XaulinXsClipboardCallback());
+                mXaulinXsClipboardHistoryManager.setListener(
+                        history -> {
+                            if (mXaulinXsClipboardPanelView != null) {
+                                mXaulinXsClipboardPanelView.refresh(history);
+                            }
+                        });
+            } else {
+                mXaulinXsClipboardPanelView.refresh(
+                        mXaulinXsClipboardHistoryManager.loadHistory());
+            }
+            // Só salva a referência do teclado se ainda não estivermos com
+            // outro overlay (voz) aberto — evita perder a referência
+            // original do teclado real ao alternar entre os dois painéis.
+            if (mXaulinXsSavedKeyboardView == null) {
+                mXaulinXsSavedKeyboardView = currentView;
+            }
+            setInputView(mXaulinXsClipboardPanelView);
+        } catch (final Exception e) {
+            // Mesmo princípio defensivo do overlay de voz: qualquer falha
+            // ao montar/exibir o painel não deve deixar o teclado num
+            // estado quebrado — simplesmente não abre o painel desta vez.
+            mXaulinXsSavedKeyboardView = null;
+        }
+    }
+
+    private void closeXaulinXsClipboardPanel() {
+        restoreXaulinXsKeyboardView();
+    }
+
+    /**
+     * Implementação de ClipboardPanelView.Callback: insere o texto
+     * escolhido via o mesmo caminho onTextInput() usado pelo restante do
+     * teclado, e fecha o painel. Nunca lida com conteúdo de imagem — ver
+     * ClipboardHistoryManager para a justificativa dessa decisão.
+     */
+    private final class XaulinXsClipboardCallback implements ClipboardPanelView.Callback {
+        @Override
+        public void onItemChosen(final ClipboardHistoryItem item) {
+            try {
+                if (item.text != null) {
+                    onTextInput(item.text);
+                }
+            } catch (final Exception e) {
+                // Falha ao colar (campo perdeu foco, etc.) não deve deixar
+                // o painel travado aberto — ainda fechamos abaixo.
+            }
+            closeXaulinXsClipboardPanel();
+        }
+
+        @Override
+        public void onClosePanel() {
+            closeXaulinXsClipboardPanel();
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(boolean allGranted) {
         ImportantNoticeUtils.updateContactsNoticeShown(this /* context */);
@@ -1473,7 +1609,18 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     // completely replace #onCodeInput.
     public void onEvent(@Nonnull final Event event) {
         if (Constants.CODE_SHORTCUT == event.mKeyCode) {
-            mRichImm.switchToShortcutIme(this);
+            // XaulinXs Foundry: tenta primeiro nossa própria digitação por
+            // voz via SpeechRecognizer nativo. O comportamento original do
+            // AOSP (delegar para outro IME registrado como "shortcut", ex.
+            // Gboard) só roda como fallback se, por algum motivo, o
+            // reconhecedor nativo do dispositivo não estiver disponível —
+            // preservando alguma funcionalidade em vez de simplesmente
+            // travar caso o SpeechRecognizer falhe.
+            if (android.speech.SpeechRecognizer.isRecognitionAvailable(this)) {
+                startXaulinXsVoiceInput();
+            } else {
+                mRichImm.switchToShortcutIme(this);
+            }
         }
         final InputTransaction completeInputTransaction =
                 mInputLogic.onCodeInput(mSettings.getCurrent(), event,
@@ -1511,6 +1658,157 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
                         mKeyboardSwitcher.getKeyboardShiftMode(), mHandler);
         updateStateAfterInputTransaction(completeInputTransaction);
         mKeyboardSwitcher.onEvent(event, getCurrentAutoCapsState(), getCurrentRecapitalizeState());
+    }
+
+    // ---- XaulinXs Foundry: digitação por voz ----
+
+    private void startXaulinXsVoiceInput() {
+        if (mXaulinXsVoiceInputManager == null) {
+            return;
+        }
+        if (!mXaulinXsVoiceInputManager.hasRecordAudioPermission()) {
+            requestXaulinXsVoicePermission();
+            return;
+        }
+        showXaulinXsVoiceOverlay();
+        try {
+            mXaulinXsVoiceInputManager.startListening(mRichImm.getCurrentSubtypeLocale());
+        } catch (final Exception e) {
+            // getCurrentSubtypeLocale() ou qualquer outra chamada aqui
+            // falhando não deve deixar o overlay travado sem teclado por
+            // trás — restaura o teclado normal imediatamente.
+            restoreXaulinXsKeyboardView();
+        }
+    }
+
+    private void requestXaulinXsVoicePermission() {
+        try {
+            final Intent intent = new Intent(this, VoicePermissionActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (final Exception e) {
+            Toast.makeText(this, R.string.xaulinxs_voice_no_permission, Toast.LENGTH_SHORT)
+                    .show();
+        }
+    }
+
+    private void showXaulinXsVoiceOverlay() {
+        final View currentView = mKeyboardSwitcher.getMainKeyboardView();
+        if (currentView == null) {
+            return;
+        }
+        try {
+            if (mXaulinXsVoiceOverlayView == null) {
+                mXaulinXsVoiceOverlayView = new VoiceInputOverlayView(this);
+                mXaulinXsVoiceOverlayView.setCancelListener(v -> cancelXaulinXsVoiceInput());
+            }
+            mXaulinXsVoiceOverlayView.showListening();
+            mXaulinXsSavedKeyboardView = currentView;
+            setInputView(mXaulinXsVoiceOverlayView);
+        } catch (final Exception e) {
+            // Se a troca de view falhar por qualquer motivo, garante que
+            // não ficamos com um estado inconsistente: cancela a escuta
+            // que talvez já tenha iniciado e mantém o teclado normal.
+            if (mXaulinXsVoiceInputManager != null) {
+                mXaulinXsVoiceInputManager.cancelListening();
+            }
+            mXaulinXsSavedKeyboardView = null;
+        }
+    }
+
+    private void restoreXaulinXsKeyboardView() {
+        try {
+            if (mXaulinXsSavedKeyboardView != null) {
+                setInputView(mXaulinXsSavedKeyboardView);
+            } else {
+                // Fallback: se por algum motivo a referência salva se
+                // perdeu (ex.: processo recriado no meio da escuta), força
+                // uma recriação normal da view de teclado em vez de deixar
+                // o overlay de voz preso na tela para sempre.
+                setInputView(onCreateInputView());
+            }
+        } catch (final Exception e) {
+            // Último recurso: nada mais a fazer aqui além de não propagar
+            // a exceção; o pior caso é o usuário precisar trocar de campo
+            // de texto para o teclado normal reaparecer.
+        } finally {
+            mXaulinXsSavedKeyboardView = null;
+        }
+    }
+
+    private void cancelXaulinXsVoiceInput() {
+        if (mXaulinXsVoiceInputManager != null) {
+            mXaulinXsVoiceInputManager.cancelListening();
+        }
+        restoreXaulinXsKeyboardView();
+    }
+
+    /**
+     * Implementação de VoiceInputManager.Callback: reage aos eventos do
+     * reconhecedor de voz atualizando o overlay e, no resultado final,
+     * inserindo o texto reconhecido via o mesmo caminho onTextInput()
+     * usado pelo próprio teclado (glide typing), e restaurando a view do
+     * teclado normal. Todo método aqui é curto e defensivo — qualquer
+     * exceção inesperada resulta em restaurar o teclado normal, nunca em
+     * deixar o overlay de voz preso na tela.
+     */
+    private final class XaulinXsVoiceCallback implements VoiceInputManager.Callback {
+        @Override
+        public void onListeningStarted() {
+            if (mXaulinXsVoiceOverlayView != null) {
+                mXaulinXsVoiceOverlayView.showListening();
+            }
+        }
+
+        @Override
+        public void onPartialResult(final String partialText) {
+            if (mXaulinXsVoiceOverlayView != null) {
+                mXaulinXsVoiceOverlayView.showPartialText(partialText);
+            }
+        }
+
+        @Override
+        public void onFinalResult(final String finalText) {
+            if (mXaulinXsVoiceOverlayView != null) {
+                mXaulinXsVoiceOverlayView.showProcessing();
+            }
+            try {
+                onTextInput(finalText);
+            } catch (final Exception e) {
+                // Se a inserção do texto falhar por qualquer motivo
+                // (campo de texto perdeu o foco durante a escuta, etc.),
+                // ainda assim restauramos o teclado normal a seguir —
+                // melhor perder o texto ditado do que travar a UI.
+            }
+            restoreXaulinXsKeyboardView();
+        }
+
+        @Override
+        public void onError(final int messageResId) {
+            if (mXaulinXsVoiceOverlayView != null) {
+                mXaulinXsVoiceOverlayView.showError(messageResId);
+            }
+            // Dá um instante para o usuário ler a mensagem de erro antes
+            // de voltar ao teclado normal automaticamente.
+            mHandler.postDelayed(this::restoreAfterError, 1500);
+        }
+
+        private void restoreAfterError() {
+            restoreXaulinXsKeyboardView();
+        }
+
+        @Override
+        public void onNoPermission() {
+            requestXaulinXsVoicePermission();
+            restoreXaulinXsKeyboardView();
+        }
+
+        @Override
+        public void onListeningEnded() {
+            // Tratado explicitamente por quem chama cancelListening()
+            // (cancelXaulinXsVoiceInput já restaura a view); nada adicional
+            // necessário aqui.
+        }
     }
 
     @Override

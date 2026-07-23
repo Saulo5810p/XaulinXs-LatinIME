@@ -489,6 +489,36 @@ public class KeyboardView extends View {
         if (bgWidth != bounds.right || bgHeight != bounds.bottom) {
             background.setBounds(0, 0, bgWidth, bgHeight);
         }
+        // XaulinXs Foundry: aplica a transparência global configurada pelo
+        // usuário ao fundo de CADA tecla individual, não só ao fundo geral
+        // do teclado. Sem isso, o wallpaper/cor de fundo customizados
+        // ficavam cobertos pelo drawable branco/cinza padrão do tema, que
+        // sempre desenha opaco por cima. mutate() evita afetar outras
+        // instâncias que compartilhem o mesmo Drawable em cache.
+        // setAlpha() é sempre seguro de chamar (Drawable.setAlpha nunca
+        // lança exceção), então não precisa de try/catch aqui.
+        final int keyAlpha = CustomizationPrefs.getKeyboardAlpha(getContext());
+        final Drawable mutableBackground = background.mutate();
+        if (keyAlpha != CustomizationPrefs.DEFAULT_ALPHA) {
+            mutableBackground.setAlpha(keyAlpha);
+        } else {
+            mutableBackground.setAlpha(Constants.Color.ALPHA_OPAQUE);
+        }
+        // Tintura da cor customizada da tecla por cima do drawable padrão
+        // do tema (que costuma ser branco/cinza claro). SRC_ATOP preserva
+        // a forma/sombra/bordas do drawable original, só troca a cor de
+        // preenchimento — assim o visual continua com a mesma "pele" do
+        // LatinIME, só com a cor escolhida pelo usuário. clearColorFilter
+        // no else garante que a tecla volte ao normal se a opção for
+        // desativada depois de já ter sido usada (o Drawable é reciclado
+        // entre teclas do mesmo tipo).
+        if (CustomizationPrefs.isKeyboardColorEnabled(getContext())) {
+            mutableBackground.setColorFilter(
+                    CustomizationPrefs.getKeyboardColor(getContext()),
+                    android.graphics.PorterDuff.Mode.SRC_ATOP);
+        } else {
+            mutableBackground.clearColorFilter();
+        }
         canvas.translate(bgX, bgY);
         background.draw(canvas);
         canvas.translate(-bgX, -bgY);

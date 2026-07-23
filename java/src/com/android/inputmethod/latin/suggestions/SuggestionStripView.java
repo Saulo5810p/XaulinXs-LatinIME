@@ -61,6 +61,9 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         public void showImportantNoticeContents();
         public void pickSuggestionManually(SuggestedWordInfo word);
         public void onCodeInput(int primaryCode, int x, int y, boolean isKeyRepeat);
+        // XaulinXs Foundry: abre o painel de histórico de área de
+        // transferência, mesmo padrão de showImportantNoticeContents().
+        public void showXaulinXsClipboardPanel();
     }
 
     static final boolean DBG = DebugFlags.DEBUG_ENABLED;
@@ -68,6 +71,7 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
     private final ViewGroup mSuggestionsStrip;
     private final ImageButton mVoiceKey;
+    private final ImageButton mXaulinXsClipboardKey;
     private final View mImportantNoticeStrip;
     MainKeyboardView mMainKeyboardView;
 
@@ -140,6 +144,8 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
         mSuggestionsStrip = (ViewGroup)findViewById(R.id.suggestions_strip);
         mVoiceKey = (ImageButton)findViewById(R.id.suggestions_strip_voice_key);
+        mXaulinXsClipboardKey =
+                (ImageButton)findViewById(R.id.xaulinxs_suggestions_strip_clipboard_key);
         mImportantNoticeStrip = findViewById(R.id.important_notice_strip);
         mStripVisibilityGroup = new StripVisibilityGroup(this, mSuggestionsStrip,
                 mImportantNoticeStrip);
@@ -178,6 +184,13 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         keyboardAttr.recycle();
         mVoiceKey.setImageDrawable(iconVoice);
         mVoiceKey.setOnClickListener(this);
+        // XaulinXs Foundry: findViewById pode retornar null se o layout
+        // inflado for uma versão antiga sem o botão novo (ex.: alguma
+        // customização de tema que ainda não tenha o XML atualizado) —
+        // checagem defensiva evita NullPointerException nesse cenário.
+        if (mXaulinXsClipboardKey != null) {
+            mXaulinXsClipboardKey.setOnClickListener(this);
+        }
     }
 
     /**
@@ -454,6 +467,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
             mListener.onCodeInput(Constants.CODE_SHORTCUT,
                     Constants.SUGGESTION_STRIP_COORDINATE, Constants.SUGGESTION_STRIP_COORDINATE,
                     false /* isKeyRepeat */);
+            return;
+        }
+        if (view == mXaulinXsClipboardKey) {
+            mListener.showXaulinXsClipboardPanel();
             return;
         }
 

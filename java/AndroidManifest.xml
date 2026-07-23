@@ -35,6 +35,11 @@
     <uses-permission android:name="android.permission.READ_USER_DICTIONARY"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
+    <!-- XaulinXs Foundry: microfone para digitação por voz via
+         SpeechRecognizer nativo (interface própria, sem depender de outro
+         app instalado como shortcut IME). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
     <!-- XaulinXs Foundry: acesso a todos os arquivos, necessário para o
          file manager próprio navegar livremente o armazenamento do
          dispositivo e importar fontes TTF/OTF de qualquer pasta.
@@ -54,6 +59,7 @@
          android:maxSdkVersion="29"/>
     <uses-permission android:name="android.permission.USE_CREDENTIALS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS"/>
     <uses-permission android:name="android.permission.WRITE_USER_DICTIONARY"/>
 
@@ -166,6 +172,16 @@
         <activity android:name="com.xaulinxs.customization.FontFileManagerActivity"
              android:theme="@style/platformSettingsTheme"
              android:label="@string/xaulinxs_filemanager_title"
+             android:exported="false"/>
+        <!-- XaulinXs Foundry: Activity invisível usada apenas para
+             solicitar a permissão de microfone em nome do serviço de
+             teclado (InputMethodService não pode chamar requestPermissions
+             diretamente). android:theme translúcido evita qualquer flash
+             de tela em branco. -->
+        <activity android:name="com.xaulinxs.voice.VoicePermissionActivity"
+             android:theme="@android:style/Theme.Translucent.NoTitleBar"
+             android:excludeFromRecents="true"
+             android:taskAffinity=""
              android:exported="false"/>
 
         <activity android:name=".spellcheck.SpellCheckerSettingsActivity"

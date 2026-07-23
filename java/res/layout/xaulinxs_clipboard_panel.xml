@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- XaulinXs Foundry: painel de histórico de área de transferência, exibido
+     no lugar do teclado ao tocar o botão de acesso na barra de sugestões. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#F5F5F5"
+    android:minHeight="200dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/xaulinxs_clipboard_panel_title"
+            android:textStyle="bold" />
+        <Button
+            android:id="@+id/xaulinxs_clipboard_clear_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/xaulinxs_clipboard_clear_all" />
+        <Button
+            android:id="@+id/xaulinxs_clipboard_close_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@android:string/ok" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/xaulinxs_clipboard_empty_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="24dp"
+        android:gravity="center"
+        android:text="@string/xaulinxs_clipboard_empty"
+        android:visibility="gone" />
+
+    <ListView
+        android:id="@+id/xaulinxs_clipboard_list"
+        android:layout_width="match_parent"
+        android:layout_height="220dp" />
+
+</LinearLayout>

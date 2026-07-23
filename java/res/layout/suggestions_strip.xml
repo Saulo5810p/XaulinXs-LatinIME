@@ -61,4 +61,14 @@
         android:layout_centerVertical="true"
         android:contentDescription="@string/spoken_description_mic"
         style="?attr/suggestionWordStyle" />
+    <!-- XaulinXs Foundry: botão de acesso ao histórico de área de
+         transferência, ao lado do botão de voz. -->
+    <ImageButton
+        android:id="@+id/xaulinxs_suggestions_strip_clipboard_key"
+        android:layout_width="@dimen/config_suggestions_strip_edge_key_width"
+        android:layout_height="fill_parent"
+        android:layout_centerVertical="true"
+        android:src="@android:drawable/ic_menu_edit"
+        android:contentDescription="@string/xaulinxs_clipboard_key_content_desc"
+        style="?attr/suggestionWordStyle" />
 </merge>

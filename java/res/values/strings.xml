@@ -610,4 +610,23 @@ Tip: You can download and remove dictionaries by going to &lt;b>Languages&#160;&
     <string name="xaulinxs_storage_permission_grant">Conceder acesso</string>
     <string name="xaulinxs_storage_permission_deny">Agora não</string>
     <string name="xaulinxs_storage_permission_error">Não foi possível abrir as configurações de permissão</string>
+
+    <!-- XaulinXs Foundry: digitação por voz -->
+    <string name="xaulinxs_voice_listening">Ouvindo…</string>
+    <string name="xaulinxs_voice_processing">Processando…</string>
+    <string name="xaulinxs_voice_cancel">Cancelar</string>
+    <string name="xaulinxs_voice_no_permission">Permita o uso do microfone para ditar texto</string>
+    <string name="xaulinxs_voice_error_generic">Não entendi, tente novamente</string>
+    <string name="xaulinxs_voice_error_no_match">Nenhuma fala reconhecida</string>
+    <string name="xaulinxs_voice_error_network">Sem conexão para reconhecimento de voz</string>
+    <string name="xaulinxs_voice_error_no_recognizer">Nenhum serviço de reconhecimento de voz disponível neste dispositivo</string>
+
+    <!-- XaulinXs Foundry: área de transferência -->
+    <string name="xaulinxs_clipboard_panel_title">Área de transferência</string>
+    <string name="xaulinxs_clipboard_empty">Nada copiado ainda</string>
+    <string name="xaulinxs_clipboard_clear_all">Limpar tudo</string>
+    <string name="xaulinxs_clipboard_delete_item">Excluir</string>
+    <string name="xaulinxs_clipboard_image_label">[Imagem copiada]</string>
+    <string name="xaulinxs_clipboard_unsupported_label">[Conteúdo não suportado para colar aqui]</string>
+    <string name="xaulinxs_clipboard_key_content_desc">Área de transferência</string>
 </resources>
