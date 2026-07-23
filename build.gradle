@@ -30,7 +30,7 @@ android {
     useLibrary 'android.test.mock'
 
     defaultConfig {
-        minSdkVersion 28
+        minSdkVersion 21
         targetSdkVersion 34
         versionName "1.0"
 

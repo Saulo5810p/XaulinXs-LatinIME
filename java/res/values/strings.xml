@@ -577,4 +577,37 @@ Tip: You can download and remove dictionaries by going to &lt;b>Languages&#160;&
          This resource is copied from packages/apps/Settings/res/values/strings.xml -->
     <!-- This resource is corresponding to msgid="5433275485499039199" -->
     <string name="user_dict_fast_scroll_alphabet">\u0020ABCDEFGHIJKLMNOPQRSTUVWXYZ</string>
+
+    <!-- XaulinXs Foundry: customização visual do teclado -->
+    <string name="xaulinxs_customization_title">Personalização XaulinXs</string>
+    <string name="xaulinxs_customization_summary">Papel de parede, cores, transparência, tamanho e fonte</string>
+    <string name="xaulinxs_section_wallpaper">Papel de parede do teclado</string>
+    <string name="xaulinxs_wallpaper_enable">Ativar papel de parede</string>
+    <string name="xaulinxs_wallpaper_choose">Escolher imagem</string>
+    <string name="xaulinxs_section_colors">Cores</string>
+    <string name="xaulinxs_keyboard_color_enable">Cor de fundo personalizada</string>
+    <string name="xaulinxs_keyboard_color_choose">Escolher cor do teclado</string>
+    <string name="xaulinxs_key_text_color_enable">Cor da fonte personalizada</string>
+    <string name="xaulinxs_key_text_color_choose">Escolher cor da fonte</string>
+    <string name="xaulinxs_section_size">Transparência e tamanho</string>
+    <string name="xaulinxs_alpha_label">Transparência</string>
+    <string name="xaulinxs_scale_label">Tamanho do teclado</string>
+    <string name="xaulinxs_section_font">Fonte personalizada</string>
+    <string name="xaulinxs_font_choose">Importar fonte (.ttf)</string>
+    <string name="xaulinxs_font_current">Fonte atual: %1$s</string>
+    <string name="xaulinxs_font_none">Fonte atual: padrão do sistema</string>
+    <string name="xaulinxs_font_reset">Restaurar fonte padrão</string>
+    <string name="xaulinxs_color_picker_title">Escolher cor</string>
+    <string name="xaulinxs_color_picker_hex_hint">Hex (ex.: FF9800)</string>
+    <string name="xaulinxs_color_picker_apply">Aplicar</string>
+    <string name="xaulinxs_color_picker_cancel">Cancelar</string>
+    <string name="xaulinxs_filemanager_title">Escolher arquivo de fonte</string>
+    <string name="xaulinxs_filemanager_empty">Nenhum arquivo .ttf/.otf encontrado nesta pasta</string>
+    <string name="xaulinxs_filemanager_up">Pasta anterior</string>
+    <string name="xaulinxs_filemanager_import_error">Não foi possível importar esta fonte</string>
+    <string name="xaulinxs_storage_permission_title">Acesso aos arquivos</string>
+    <string name="xaulinxs_storage_permission_message">Para navegar suas pastas e importar uma fonte, o app precisa de permissão de acesso a todos os arquivos do dispositivo. Você será levado à tela de configurações do sistema para conceder esse acesso.</string>
+    <string name="xaulinxs_storage_permission_grant">Conceder acesso</string>
+    <string name="xaulinxs_storage_permission_deny">Agora não</string>
+    <string name="xaulinxs_storage_permission_error">Não foi possível abrir as configurações de permissão</string>
 </resources>

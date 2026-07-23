@@ -31,4 +31,17 @@
         android:title="@string/enable_split_keyboard"
         android:persistent="true"
         android:defaultValue="false" />
+    <!-- XaulinXs Foundry: entrada de menu para a tela de customização
+         visual própria (wallpaper, cores, transparência, tamanho, fonte
+         TTF). Abre uma Activity dedicada em vez de um PreferenceFragment,
+         pois as customizações usam color pickers e um seletor de imagem
+         que não se encaixam bem no sistema de Preference simples. -->
+    <Preference
+        android:key="pref_xaulinxs_customization"
+        android:title="@string/xaulinxs_customization_title"
+        android:summary="@string/xaulinxs_customization_summary">
+        <intent
+            android:targetPackage="com.android.inputmethod.latin"
+            android:targetClass="com.xaulinxs.customization.CustomizationSettingsActivity" />
+    </Preference>
 </PreferenceScreen>

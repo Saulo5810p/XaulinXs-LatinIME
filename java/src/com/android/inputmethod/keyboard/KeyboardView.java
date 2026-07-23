@@ -37,7 +37,10 @@ import com.android.inputmethod.keyboard.internal.KeyVisualAttributes;
 import com.android.inputmethod.latin.R;
 import com.android.inputmethod.latin.common.Constants;
 import com.android.inputmethod.latin.utils.TypefaceUtils;
+import com.xaulinxs.customization.CustomizationPrefs;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashSet;
 
 import javax.annotation.Nonnull;
@@ -121,6 +124,19 @@ public class KeyboardView extends View {
     @Nonnull
     private final Paint mPaint = new Paint();
     private final Paint.FontMetrics mFontMetrics = new Paint.FontMetrics();
+
+    // ---- XaulinXs Foundry: customização visual (wallpaper/cor/transparência) ----
+    // Bitmap do wallpaper do teclado já decodificado e escalado, cacheado
+    // para não recarregar do disco a cada onDraw. Null se não houver
+    // wallpaper configurado ou se a decodificação falhar (nunca lança).
+    @Nullable
+    private Bitmap mXaulinXsWallpaperBitmap;
+    // Guarda a URI que gerou o bitmap acima, para saber quando precisa
+    // recarregar (evita redecodificar a mesma imagem em todo frame).
+    @Nullable
+    private String mXaulinXsWallpaperUriString;
+    private int mXaulinXsWallpaperTargetWidth = -1;
+    private int mXaulinXsWallpaperTargetHeight = -1;
 
     public KeyboardView(final Context context, final AttributeSet attrs) {
         this(context, attrs, R.attr.keyboardViewStyle);
@@ -278,6 +294,99 @@ public class KeyboardView extends View {
         }
     }
 
+    // ---- XaulinXs Foundry: customização visual ----
+
+    /**
+     * Garante que {@link #mXaulinXsWallpaperBitmap} reflita a URI e as
+     * dimensões atuais do teclado, recarregando do disco apenas quando
+     * necessário. Nunca lança exceção: qualquer falha (arquivo apagado,
+     * permissão revogada, imagem corrompida) resulta em wallpaper
+     * desativado silenciosamente para este frame, e o teclado volta a
+     * desenhar o fundo normal.
+     */
+    /**
+     * Desenha, nesta ordem, a cor de fundo customizada (se ativa) e o
+     * wallpaper customizado (se ativo) por cima do background padrão do
+     * tema. A transparência global configurada pelo usuário é aplicada à
+     * cor de fundo customizada (o wallpaper, por natureza de imagem, não
+     * usa esse alpha — ele tem opacidade própria da foto escolhida).
+     *
+     * Totalmente opcional e aditivo: se o usuário não ativou nenhuma
+     * customização, este método não desenha nada e o visual do tema
+     * original do AOSP permanece inalterado.
+     */
+    private void drawXaulinXsCustomBackground(@Nonnull final Canvas canvas) {
+        final Context context = getContext();
+        if (CustomizationPrefs.isKeyboardColorEnabled(context)) {
+            final int color = CustomizationPrefs.getKeyboardColor(context);
+            final int alpha = CustomizationPrefs.getKeyboardAlpha(context);
+            final Paint bgPaint = mPaint;
+            bgPaint.reset();
+            bgPaint.setColor(color);
+            bgPaint.setAlpha(alpha);
+            canvas.drawRect(0, 0, getWidth(), getHeight(), bgPaint);
+        }
+        if (CustomizationPrefs.isWallpaperEnabled(context)) {
+            updateXaulinXsWallpaperIfNeeded(getWidth(), getHeight());
+            if (mXaulinXsWallpaperBitmap != null) {
+                canvas.drawBitmap(mXaulinXsWallpaperBitmap, 0f, 0f, null);
+            }
+        }
+    }
+
+    private void updateXaulinXsWallpaperIfNeeded(final int width, final int height) {
+        if (!CustomizationPrefs.isWallpaperEnabled(getContext())) {
+            if (mXaulinXsWallpaperBitmap != null) {
+                mXaulinXsWallpaperBitmap = null;
+                mXaulinXsWallpaperUriString = null;
+            }
+            return;
+        }
+        final android.net.Uri uri = CustomizationPrefs.getWallpaperUri(getContext());
+        if (uri == null) {
+            mXaulinXsWallpaperBitmap = null;
+            mXaulinXsWallpaperUriString = null;
+            return;
+        }
+        final String uriString = uri.toString();
+        final boolean sameImage = uriString.equals(mXaulinXsWallpaperUriString);
+        final boolean sameSize = width == mXaulinXsWallpaperTargetWidth
+                && height == mXaulinXsWallpaperTargetHeight;
+        if (sameImage && sameSize && mXaulinXsWallpaperBitmap != null) {
+            return;
+        }
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+        try (InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                mXaulinXsWallpaperBitmap = null;
+                return;
+            }
+            final Bitmap original = android.graphics.BitmapFactory.decodeStream(in);
+            if (original == null) {
+                mXaulinXsWallpaperBitmap = null;
+                return;
+            }
+            mXaulinXsWallpaperBitmap = Bitmap.createScaledBitmap(
+                    original, width, height, true /* filter */);
+            if (mXaulinXsWallpaperBitmap != original) {
+                original.recycle();
+            }
+            mXaulinXsWallpaperUriString = uriString;
+            mXaulinXsWallpaperTargetWidth = width;
+            mXaulinXsWallpaperTargetHeight = height;
+        } catch (final IOException | OutOfMemoryError | SecurityException e) {
+            // Arquivo apagado, permissão de URI revogada (comum após
+            // reinício do sistema para URIs de content:// sem persistência
+            // explícita), ou imagem grande demais para a memória
+            // disponível. Em qualquer caso, apenas não desenha wallpaper
+            // neste frame — nunca derruba o teclado.
+            mXaulinXsWallpaperBitmap = null;
+            mXaulinXsWallpaperUriString = null;
+        }
+    }
+
     private void onDrawKeyboard(@Nonnull final Canvas canvas) {
         final Keyboard keyboard = getKeyboard();
         if (keyboard == null) {
@@ -296,6 +405,12 @@ public class KeyboardView extends View {
                 canvas.drawColor(Color.BLACK, PorterDuff.Mode.CLEAR);
                 background.draw(canvas);
             }
+            // XaulinXs Foundry: fundo customizado (cor sólida e/ou
+            // wallpaper) desenhado por cima do background padrão do tema,
+            // antes das teclas. Se nenhuma customização estiver ativa, este
+            // bloco não altera nada visualmente (comportamento AOSP
+            // original preservado).
+            drawXaulinXsCustomBackground(canvas);
             // Draw all keys.
             for (final Key key : keyboard.getSortedKeys()) {
                 onDrawKey(key, canvas, paint);
@@ -396,6 +511,16 @@ public class KeyboardView extends View {
         final String label = key.getLabel();
         if (label != null) {
             paint.setTypeface(key.selectTypeface(params));
+            // XaulinXs Foundry: se o usuário importou uma fonte TTF
+            // customizada, ela sobrepõe o typeface do tema para o label
+            // principal da tecla. loadCustomTypeface() nunca lança exceção
+            // e retorna null se não houver fonte ou se o carregamento
+            // falhar, então o typeface original do AOSP permanece como
+            // fallback automático.
+            final Typeface customTypeface = CustomizationPrefs.loadCustomTypeface(getContext());
+            if (customTypeface != null) {
+                paint.setTypeface(customTypeface);
+            }
             paint.setTextSize(key.selectTextSize(params));
             final float labelCharHeight = TypefaceUtils.getReferenceCharHeight(paint);
             final float labelCharWidth = TypefaceUtils.getReferenceCharWidth(paint);
@@ -425,6 +550,13 @@ public class KeyboardView extends View {
 
             if (key.isEnabled()) {
                 paint.setColor(key.selectTextColor(params));
+                // XaulinXs Foundry: cor de texto customizada sobrepõe a cor
+                // do tema quando o usuário ativa essa opção. Fallback
+                // automático para a cor original se a opção estiver
+                // desativada.
+                if (CustomizationPrefs.isKeyTextColorEnabled(getContext())) {
+                    paint.setColor(CustomizationPrefs.getKeyTextColor(getContext()));
+                }
                 // Set a drop shadow for the text if the shadow radius is positive value.
                 if (mKeyTextShadowRadius > 0.0f) {
                     paint.setShadowLayer(mKeyTextShadowRadius, 0.0f, 0.0f, params.mTextShadowColor);
