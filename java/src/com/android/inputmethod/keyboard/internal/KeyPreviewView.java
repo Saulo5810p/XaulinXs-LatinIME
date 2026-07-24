@@ -28,6 +28,7 @@ import android.widget.TextView;
 
 import com.android.inputmethod.keyboard.Key;
 import com.android.inputmethod.latin.R;
+import com.xaulinxs.customization.CustomizationPrefs;
 
 import java.util.HashSet;
 
@@ -65,6 +66,21 @@ public class KeyPreviewView extends TextView {
         setTextColor(drawParams.mPreviewTextColor);
         setTextSize(TypedValue.COMPLEX_UNIT_PX, key.selectPreviewTextSize(drawParams));
         setTypeface(key.selectPreviewTypeface(drawParams));
+        // XaulinXs Foundry: mesma sobreposição de cor/fonte customizadas
+        // aplicada em KeyboardView.onDrawKeyTopVisuals(), agora também no
+        // preview flutuante da tecla (o "balão" que aparece ao tocar) —
+        // sem isso, o preview continuava com o visual padrão do tema
+        // mesmo com as customizações ativas. loadCustomTypeface() e os
+        // getters de CustomizationPrefs nunca lançam exceção; fallback
+        // automático ao padrão do tema quando a opção está desativada.
+        if (CustomizationPrefs.isKeyTextColorEnabled(getContext())) {
+            setTextColor(CustomizationPrefs.getKeyTextColor(getContext()));
+        }
+        final android.graphics.Typeface customTypeface =
+                CustomizationPrefs.loadCustomTypeface(getContext());
+        if (customTypeface != null) {
+            setTypeface(customTypeface);
+        }
         // TODO Should take care of temporaryShiftLabel here.
         setTextAndScaleX(key.getPreviewLabel());
     }
@@ -135,5 +151,20 @@ public class KeyPreviewView extends TextView {
         }
         final int hasMoreKeysState = hasMoreKeys ? STATE_HAS_MOREKEYS : STATE_NORMAL;
         background.setState(KEY_PREVIEW_BACKGROUND_STATE_TABLE[position][hasMoreKeysState]);
+        // XaulinXs Foundry: mesma tintura de cor/transparência aplicada em
+        // KeyboardView.onDrawKeyBackground(), agora também no fundo do
+        // balão de preview — mutate() evita afetar outros drawables que
+        // compartilhem a mesma instância em cache do sistema de temas.
+        final Drawable mutableBackground = background.mutate();
+        final int alpha = CustomizationPrefs.getKeyboardAlpha(getContext());
+        mutableBackground.setAlpha(alpha != CustomizationPrefs.DEFAULT_ALPHA
+                ? alpha : com.android.inputmethod.latin.common.Constants.Color.ALPHA_OPAQUE);
+        if (CustomizationPrefs.isKeyboardColorEnabled(getContext())) {
+            mutableBackground.setColorFilter(
+                    CustomizationPrefs.getKeyboardColor(getContext()),
+                    android.graphics.PorterDuff.Mode.SRC_ATOP);
+        } else {
+            mutableBackground.clearColorFilter();
+        }
     }
 }

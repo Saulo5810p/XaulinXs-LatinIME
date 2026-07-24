@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.preference.PreferenceManager;
 import androidx.viewpager.widget.ViewPager;
 import android.util.AttributeSet;
@@ -50,6 +51,7 @@ import com.android.inputmethod.latin.R;
 import com.android.inputmethod.latin.RichInputMethodSubtype;
 import com.android.inputmethod.latin.common.Constants;
 import com.android.inputmethod.latin.utils.ResourceUtils;
+import com.xaulinxs.customization.CustomizationPrefs;
 
 /**
  * View class to implement Emoji palettes.
@@ -83,6 +85,16 @@ public final class EmojiPalettesView extends LinearLayout implements OnTabChange
     // TODO: Remove this workaround.
     private View mSpacebarIcon;
     private TabHost mTabHost;
+    // XaulinXs Foundry: containers do painel de emoji que têm fundo
+    // próprio vindo do tema (não desenhado via KeyboardView.onDraw, que já
+    // é customizado) — barra de abas de categoria (topo) e barra de ação
+    // com o botão "ABC"/espaço (base). Guardamos os Drawables originais
+    // para restaurá-los fielmente quando a cor customizada é desativada.
+    private View mXaulinXsEmojiTabStrip;
+    private View mXaulinXsEmojiActionBar;
+    private Drawable mXaulinXsOriginalRootBackground;
+    private Drawable mXaulinXsOriginalTabStripBackground;
+    private Drawable mXaulinXsOriginalActionBarBackground;
     private ViewPager mEmojiPager;
     private int mCurrentPagerPosition = 0;
     private EmojiCategoryPageIndicatorView mEmojiCategoryPageIndicatorView;
@@ -229,6 +241,57 @@ public final class EmojiPalettesView extends LinearLayout implements OnTabChange
         mSpacebar.setOnClickListener(this);
         mEmojiLayoutParams.setKeyProperties(mSpacebar);
         mSpacebarIcon = findViewById(R.id.emoji_keyboard_space_icon);
+
+        // XaulinXs Foundry: captura referências e backgrounds originais dos
+        // containers extras do painel de emoji (barra de abas + barra de
+        // ação), e aplica a customização de cor/transparência se ativa.
+        // Ver applyXaulinXsCustomBackground().
+        mXaulinXsEmojiTabStrip = findViewById(R.id.xaulinxs_emoji_tab_strip);
+        mXaulinXsEmojiActionBar = actionBar;
+        mXaulinXsOriginalRootBackground = getBackground();
+        if (mXaulinXsEmojiTabStrip != null) {
+            mXaulinXsOriginalTabStripBackground = mXaulinXsEmojiTabStrip.getBackground();
+        }
+        if (mXaulinXsEmojiActionBar != null) {
+            mXaulinXsOriginalActionBarBackground = mXaulinXsEmojiActionBar.getBackground();
+        }
+        applyXaulinXsCustomBackground();
+    }
+
+    /**
+     * BUG CRÔNICO CORRIGIDO: o painel de emoji tinha "cantos brancos" nas
+     * bordas superior (barra de abas de categoria) e inferior (barra de
+     * ação com o botão ABC/espaço) mesmo com a cor customizada do teclado
+     * ativada — essas duas faixas, e o container raiz, têm fundo próprio
+     * vindo do tema/XML e nunca passavam pelo KeyboardView.onDraw() já
+     * customizado (que só desenha as teclas de emoji em si). Aplica a
+     * mesma cor/transparência a esses três containers extras. Getters de
+     * CustomizationPrefs nunca lançam exceção; quando a customização está
+     * desativada, restaura fielmente os Drawables originais do tema
+     * (capturados em onFinishInflate) em vez de apenas removê-los.
+     */
+    private void applyXaulinXsCustomBackground() {
+        if (CustomizationPrefs.isKeyboardColorEnabled(getContext())) {
+            final int color = CustomizationPrefs.getKeyboardColor(getContext());
+            final int alpha = CustomizationPrefs.getKeyboardAlpha(getContext());
+            final int argb = Color.argb(alpha, Color.red(color), Color.green(color),
+                    Color.blue(color));
+            setBackgroundColor(argb);
+            if (mXaulinXsEmojiTabStrip != null) {
+                mXaulinXsEmojiTabStrip.setBackgroundColor(argb);
+            }
+            if (mXaulinXsEmojiActionBar != null) {
+                mXaulinXsEmojiActionBar.setBackgroundColor(argb);
+            }
+        } else {
+            setBackground(mXaulinXsOriginalRootBackground);
+            if (mXaulinXsEmojiTabStrip != null) {
+                mXaulinXsEmojiTabStrip.setBackground(mXaulinXsOriginalTabStripBackground);
+            }
+            if (mXaulinXsEmojiActionBar != null) {
+                mXaulinXsEmojiActionBar.setBackground(mXaulinXsOriginalActionBarBackground);
+            }
+        }
     }
 
     @Override

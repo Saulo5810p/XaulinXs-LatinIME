@@ -1464,8 +1464,12 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     @Override
     public void showXaulinXsClipboardPanel() {
-        final View currentView = mKeyboardSwitcher.getMainKeyboardView();
-        if (currentView == null || mXaulinXsClipboardHistoryManager == null) {
+        // XaulinXs Foundry: mesma correção aplicada em showXaulinXsVoiceOverlay
+        // — mInputView é a view raiz real, getMainKeyboardView() retornava
+        // só a view interna do teclado, corrompendo a hierarquia ao
+        // restaurar depois.
+        final View currentRootView = mInputView;
+        if (currentRootView == null || mXaulinXsClipboardHistoryManager == null) {
             return;
         }
         try {
@@ -1487,7 +1491,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             // outro overlay (voz) aberto — evita perder a referência
             // original do teclado real ao alternar entre os dois painéis.
             if (mXaulinXsSavedKeyboardView == null) {
-                mXaulinXsSavedKeyboardView = currentView;
+                mXaulinXsSavedKeyboardView = currentRootView;
             }
             setInputView(mXaulinXsClipboardPanelView);
         } catch (final Exception e) {
@@ -1693,8 +1697,18 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     }
 
     private void showXaulinXsVoiceOverlay() {
-        final View currentView = mKeyboardSwitcher.getMainKeyboardView();
-        if (currentView == null) {
+        // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — usar
+        // mKeyboardSwitcher.getMainKeyboardView() aqui capturava apenas a
+        // view interna do teclado (sem a barra de sugestões/container ao
+        // redor), não a hierarquia de view raiz real passada da última vez
+        // que setInputView() foi chamado pelo fluxo normal do teclado.
+        // Restaurar essa referência errada depois reestruturava a árvore
+        // de views incorretamente: a barra de sugestões sumia, o teclado
+        // saltava para o topo da tela e a área de toque ficava
+        // dessincronizada do que era desenhado. mInputView é o campo que
+        // sempre reflete a última view raiz real passada a setInputView().
+        final View currentRootView = mInputView;
+        if (currentRootView == null) {
             return;
         }
         try {
@@ -1703,7 +1717,9 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
                 mXaulinXsVoiceOverlayView.setCancelListener(v -> cancelXaulinXsVoiceInput());
             }
             mXaulinXsVoiceOverlayView.showListening();
-            mXaulinXsSavedKeyboardView = currentView;
+            if (mXaulinXsSavedKeyboardView == null) {
+                mXaulinXsSavedKeyboardView = currentRootView;
+            }
             setInputView(mXaulinXsVoiceOverlayView);
         } catch (final Exception e) {
             // Se a troca de view falhar por qualquer motivo, garante que
@@ -1890,13 +1906,17 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
         final boolean shouldShowImportantNotice =
                 ImportantNoticeUtils.shouldShowImportantNotice(this, currentSettingsValues);
-        final boolean shouldShowSuggestionCandidates =
-                currentSettingsValues.mInputAttributes.mShouldShowSuggestions
-                && currentSettingsValues.isSuggestionsEnabledPerUserSettings();
-        final boolean shouldShowSuggestionsStripUnlessPassword = shouldShowImportantNotice
-                || currentSettingsValues.mShowsVoiceInputKey
-                || shouldShowSuggestionCandidates
-                || currentSettingsValues.isApplicationSpecifiedCompletionsOn();
+        // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — antes, a barra inteira
+        // (sugestões + botões de voz/clipboard) sumia sempre que o app de
+        // destino marcava o campo como "sem sugestões" (ex.: campos de
+        // busca, numéricos), mesmo quando o usuário não estava digitando
+        // senha nenhuma. Isso escondia também os botões de voz e área de
+        // transferência sem necessidade. Agora a barra só fica realmente
+        // oculta em campos de senha — em qualquer outro campo ela
+        // permanece visível, mesmo que sem sugestões de palavra (o
+        // conteúdo da faixa de sugestões em si continua vazio nesse caso,
+        // apenas o container e os botões extras continuam acessíveis).
+        final boolean shouldShowSuggestionsStripUnlessPassword = true;
         final boolean shouldShowSuggestionsStrip = shouldShowSuggestionsStripUnlessPassword
                 && !currentSettingsValues.mInputAttributes.mIsPasswordField;
         mSuggestionStripView.updateVisibility(shouldShowSuggestionsStrip, isFullscreenMode());

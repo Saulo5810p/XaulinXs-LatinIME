@@ -47,6 +47,7 @@ import com.android.inputmethod.latin.R;
 import com.android.inputmethod.latin.SuggestedWords;
 import com.android.inputmethod.latin.SuggestedWords.SuggestedWordInfo;
 import com.android.inputmethod.latin.common.Constants;
+import com.xaulinxs.customization.CustomizationPrefs;
 import com.android.inputmethod.latin.define.DebugFlags;
 import com.android.inputmethod.latin.settings.Settings;
 import com.android.inputmethod.latin.settings.SettingsValues;
@@ -70,6 +71,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     private static final float DEBUG_INFO_TEXT_SIZE_IN_DIP = 6.0f;
 
     private final ViewGroup mSuggestionsStrip;
+    // XaulinXs Foundry: guarda o background original do tema (definido via
+    // XML/estilo) para poder restaurá-lo de verdade quando a cor
+    // customizada é desativada, em vez de deixar a view sem fundo nenhum.
+    private final Drawable mOriginalBackground;
     private final ImageButton mVoiceKey;
     private final ImageButton mXaulinXsClipboardKey;
     private final View mImportantNoticeStrip;
@@ -141,6 +146,10 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
 
         final LayoutInflater inflater = LayoutInflater.from(context);
         inflater.inflate(R.layout.suggestions_strip, this);
+        // XaulinXs Foundry: captura o background original definido pelo
+        // tema/XML antes de qualquer customização ser aplicada, para
+        // podermos restaurá-lo fielmente depois.
+        mOriginalBackground = getBackground();
 
         mSuggestionsStrip = (ViewGroup)findViewById(R.id.suggestions_strip);
         mVoiceKey = (ImageButton)findViewById(R.id.suggestions_strip_voice_key);
@@ -207,6 +216,24 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
         setVisibility(visibility);
         final SettingsValues currentSettingsValues = Settings.getInstance().getCurrent();
         mVoiceKey.setVisibility(currentSettingsValues.mShowsVoiceInputKey ? VISIBLE : INVISIBLE);
+        // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — a barra de sugestões
+        // continuava branca/cor padrão do tema mesmo com a cor
+        // customizada do teclado ativada, quebrando a coesão visual com
+        // as teclas coloridas logo abaixo. Aplica a mesma cor e
+        // transparência aqui. Getters de CustomizationPrefs nunca lançam
+        // exceção; se a customização estiver desativada, restaura o
+        // background original do tema capturado em mOriginalBackground.
+        if (CustomizationPrefs.isKeyboardColorEnabled(getContext())) {
+            final int color = CustomizationPrefs.getKeyboardColor(getContext());
+            final int alpha = CustomizationPrefs.getKeyboardAlpha(getContext());
+            setBackgroundColor(android.graphics.Color.argb(
+                    alpha,
+                    android.graphics.Color.red(color),
+                    android.graphics.Color.green(color),
+                    android.graphics.Color.blue(color)));
+        } else {
+            setBackground(mOriginalBackground);
+        }
     }
 
     public void setSuggestions(final SuggestedWords suggestedWords, final boolean isRtlLanguage) {
