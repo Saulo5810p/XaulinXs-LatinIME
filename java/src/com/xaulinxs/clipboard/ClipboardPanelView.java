@@ -29,6 +29,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.android.inputmethod.latin.R;
+import com.xaulinxs.customization.CustomizationPrefs;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,11 +70,33 @@ public class ClipboardPanelView extends LinearLayout {
             mEmptyLabel = findViewById(R.id.xaulinxs_clipboard_empty_label);
             mAdapter = new ItemAdapter();
             mListView.setAdapter(mAdapter);
+            applyXaulinXsTheme(context);
         } catch (final Exception e) {
             // Se a inflação falhar, o painel fica vazio em vez de derrubar
             // quem o criou — a checagem de nulidade nos métodos abaixo
             // evita NullPointerException nesse cenário.
         }
+    }
+
+    /**
+     * XaulinXs Foundry: aplica a cor de fundo customizada do teclado a este
+     * painel, para ele seguir o mesmo design visual do resto do app em vez
+     * de usar sempre a mesma cor cinza-claro fixa. Getters de
+     * CustomizationPrefs nunca lançam exceção.
+     */
+    private void applyXaulinXsTheme(final Context context) {
+        final int backgroundColor;
+        if (CustomizationPrefs.isKeyboardColorEnabled(context)) {
+            final int color = CustomizationPrefs.getKeyboardColor(context);
+            final int alpha = CustomizationPrefs.getKeyboardAlpha(context);
+            backgroundColor = android.graphics.Color.argb(alpha,
+                    android.graphics.Color.red(color),
+                    android.graphics.Color.green(color),
+                    android.graphics.Color.blue(color));
+        } else {
+            backgroundColor = 0xFFF5F5F5; // cinza-claro neutro padrão
+        }
+        setBackgroundColor(backgroundColor);
     }
 
     public void bind(final ClipboardHistoryManager historyManager, final Callback callback) {

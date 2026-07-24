@@ -283,6 +283,18 @@ public final class EmojiPalettesView extends LinearLayout implements OnTabChange
             if (mXaulinXsEmojiActionBar != null) {
                 mXaulinXsEmojiActionBar.setBackgroundColor(argb);
             }
+            // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — os botões "ABC"
+            // (mAlphabetKeyLeft/Right) e a barra de espaço têm cada um seu
+            // próprio Drawable via setBackgroundResource(), desenhado POR
+            // CIMA do container mXaulinXsEmojiActionBar tingido acima —
+            // por isso continuavam brancos mesmo com a barra de ação já
+            // colorida. Aplica a mesma tintura de cor (preservando forma
+            // do drawable original via SRC_ATOP) e transparência a cada um
+            // individualmente, mesmo padrão usado em
+            // KeyboardView.onDrawKeyBackground().
+            tintXaulinXsFunctionalKey(mAlphabetKeyLeft, color, alpha);
+            tintXaulinXsFunctionalKey(mAlphabetKeyRight, color, alpha);
+            tintXaulinXsFunctionalKey(mSpacebar, color, alpha);
         } else {
             setBackground(mXaulinXsOriginalRootBackground);
             if (mXaulinXsEmojiTabStrip != null) {
@@ -291,7 +303,43 @@ public final class EmojiPalettesView extends LinearLayout implements OnTabChange
             if (mXaulinXsEmojiActionBar != null) {
                 mXaulinXsEmojiActionBar.setBackground(mXaulinXsOriginalActionBarBackground);
             }
+            clearXaulinXsFunctionalKeyTint(mAlphabetKeyLeft);
+            clearXaulinXsFunctionalKeyTint(mAlphabetKeyRight);
+            clearXaulinXsFunctionalKeyTint(mSpacebar);
         }
+    }
+
+    /**
+     * Aplica tintura de cor (SRC_ATOP, preserva a forma do drawable
+     * original) e transparência ao background de uma View funcional do
+     * painel de emoji (botões ABC, barra de espaço). view pode ser null
+     * (findViewById pode não ter encontrado a view em algum cenário de
+     * layout customizado) — checagem defensiva evita NullPointerException.
+     */
+    private void tintXaulinXsFunctionalKey(final View view, final int color, final int alpha) {
+        if (view == null) {
+            return;
+        }
+        final Drawable background = view.getBackground();
+        if (background == null) {
+            return;
+        }
+        final Drawable mutableBackground = background.mutate();
+        mutableBackground.setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_ATOP);
+        mutableBackground.setAlpha(alpha);
+    }
+
+    private void clearXaulinXsFunctionalKeyTint(final View view) {
+        if (view == null) {
+            return;
+        }
+        final Drawable background = view.getBackground();
+        if (background == null) {
+            return;
+        }
+        final Drawable mutableBackground = background.mutate();
+        mutableBackground.clearColorFilter();
+        mutableBackground.setAlpha(com.android.inputmethod.latin.common.Constants.Color.ALPHA_OPAQUE);
     }
 
     @Override
@@ -452,6 +500,12 @@ public final class EmojiPalettesView extends LinearLayout implements OnTabChange
         setupAlphabetKey(mAlphabetKeyRight, switchToAlphaLabel, params);
         mEmojiPager.setAdapter(mEmojiPalettesAdapter);
         mEmojiPager.setCurrentItem(mCurrentPagerPosition);
+        // XaulinXs Foundry: reaplica a customização de cor a cada vez que o
+        // painel de emoji é (re)iniciado — setupAlphabetKey() acima e a
+        // configuração do ícone da barra de espaço podem trocar/resetar os
+        // Drawables de fundo, então a tintura precisa ser reaplicada depois
+        // dessas chamadas, não só uma vez em onFinishInflate().
+        applyXaulinXsCustomBackground();
     }
 
     public void stopEmojiPalettes() {

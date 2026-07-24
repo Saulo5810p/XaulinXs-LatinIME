@@ -23,6 +23,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.inputmethod.latin.R;
+import com.xaulinxs.customization.CustomizationPrefs;
 
 /**
  * View própria que substitui a área do teclado enquanto a digitação por
@@ -47,11 +48,47 @@ public class VoiceInputOverlayView extends LinearLayout {
             LayoutInflater.from(context).inflate(R.layout.xaulinxs_voice_overlay, this, true);
             mStatusLabel = findViewById(R.id.xaulinxs_voice_status_label);
             mPartialText = findViewById(R.id.xaulinxs_voice_partial_text);
+            applyXaulinXsTheme(context);
         } catch (final Exception e) {
             // Se a inflação falhar por qualquer motivo, a view fica vazia
             // em vez de derrubar quem a criou; showListening/showError etc.
             // ficam sem efeito nesse caso (checagem de nulidade abaixo),
             // mas o teclado como um todo continua funcionando.
+        }
+    }
+
+    /**
+     * XaulinXs Foundry: aplica a cor de fundo e cor de texto customizadas
+     * do teclado a esta tela, para ela seguir o mesmo design visual em vez
+     * de usar sempre a mesma cor cinza-claro fixa. Se nenhuma customização
+     * estiver ativa, usa um cinza-claro neutro como padrão — os getters de
+     * CustomizationPrefs nunca lançam exceção, então esse método é seguro
+     * de chamar mesmo sem nenhuma preferência salva ainda.
+     */
+    private void applyXaulinXsTheme(final Context context) {
+        final int backgroundColor;
+        if (CustomizationPrefs.isKeyboardColorEnabled(context)) {
+            final int color = CustomizationPrefs.getKeyboardColor(context);
+            final int alpha = CustomizationPrefs.getKeyboardAlpha(context);
+            backgroundColor = android.graphics.Color.argb(alpha,
+                    android.graphics.Color.red(color),
+                    android.graphics.Color.green(color),
+                    android.graphics.Color.blue(color));
+        } else {
+            backgroundColor = 0xFFF5F5F5; // cinza-claro neutro padrão
+        }
+        setBackgroundColor(backgroundColor);
+        if (CustomizationPrefs.isKeyTextColorEnabled(context) && mStatusLabel != null
+                && mPartialText != null) {
+            final int textColor = CustomizationPrefs.getKeyTextColor(context);
+            mStatusLabel.setTextColor(textColor);
+            mPartialText.setTextColor(textColor);
+        }
+        final android.graphics.Typeface customTypeface =
+                CustomizationPrefs.loadCustomTypeface(context);
+        if (customTypeface != null && mStatusLabel != null && mPartialText != null) {
+            mStatusLabel.setTypeface(customTypeface);
+            mPartialText.setTypeface(customTypeface);
         }
     }
 

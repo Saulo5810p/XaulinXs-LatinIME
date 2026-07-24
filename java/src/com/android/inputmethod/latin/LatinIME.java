@@ -1317,6 +1317,27 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         if (mInputView == null) {
             return;
         }
+        // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — esta é a causa raiz real
+        // do "teclado sobe para o topo da tela" e "área de toque vazia
+        // ocupando a tela inteira" ao abrir o overlay de voz ou o painel de
+        // clipboard. Quando um desses overlays está ativo, mInputView é o
+        // overlay (não o teclado normal), então
+        // mKeyboardSwitcher.getVisibleKeyboardView() retorna null e
+        // hasSuggestionStripView() é false — o código original abaixo
+        // simplesmente retornava sem chamar mInsetsUpdater.setInsets(),
+        // deixando o sistema de janelas do Android com os insets ANTIGOS do
+        // teclado normal "presos", incoerentes com o overlay pequeno
+        // realmente sendo exibido. Calculamos aqui os insets corretos para
+        // a altura real do overlay atual, do mesmo jeito que o teclado
+        // normal faz para si mesmo.
+        if (mXaulinXsVoiceOverlayView != null && mInputView == mXaulinXsVoiceOverlayView) {
+            applyXaulinXsOverlayInsets(outInsets, mXaulinXsVoiceOverlayView);
+            return;
+        }
+        if (mXaulinXsClipboardPanelView != null && mInputView == mXaulinXsClipboardPanelView) {
+            applyXaulinXsOverlayInsets(outInsets, mXaulinXsClipboardPanelView);
+            return;
+        }
         final SettingsValues settingsValues = mSettings.getCurrent();
         final View visibleKeyboardView = mKeyboardSwitcher.getVisibleKeyboardView();
         if (visibleKeyboardView == null || !hasSuggestionStripView()) {
@@ -1348,6 +1369,39 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         outInsets.contentTopInsets = visibleTopY;
         outInsets.visibleTopInsets = visibleTopY;
         mInsetsUpdater.setInsets(outInsets);
+    }
+
+    /**
+     * Calcula e aplica os insets de janela para um overlay XaulinXs (voz ou
+     * clipboard) que substituiu o teclado normal — mesmo princípio do
+     * cálculo original do teclado (linhas acima), mas usando a altura real
+     * do overlay em vez da altura do MainKeyboardView/SuggestionStripView,
+     * que não existem na árvore de views enquanto o overlay está ativo.
+     */
+    private void applyXaulinXsOverlayInsets(final InputMethodService.Insets outInsets,
+            final View overlayView) {
+        try {
+            final int overlayHeight = overlayView.getHeight();
+            if (overlayHeight <= 0) {
+                // View ainda não mediu/desenhou nesta passada de layout —
+                // não define insets neste frame em vez de aplicar um valor
+                // de altura zero incorreto; a próxima chamada a
+                // onComputeInsets (o sistema chama repetidamente durante o
+                // layout) vai corrigir assim que a altura real existir.
+                return;
+            }
+            final int inputHeight = mInputView.getHeight();
+            final int visibleTopY = Math.max(0, inputHeight - overlayHeight);
+            outInsets.contentTopInsets = visibleTopY;
+            outInsets.visibleTopInsets = visibleTopY;
+            outInsets.touchableInsets = InputMethodService.Insets.TOUCHABLE_INSETS_REGION;
+            outInsets.touchableRegion.set(0, visibleTopY, overlayView.getWidth(), inputHeight);
+            mInsetsUpdater.setInsets(outInsets);
+        } catch (final Exception e) {
+            // Nunca deixa o cálculo de insets de um overlay derrubar o
+            // teclado — na pior hipótese, os insets deste frame específico
+            // ficam desatualizados, mas o app continua funcionando.
+        }
     }
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
@@ -1906,19 +1960,14 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
         final boolean shouldShowImportantNotice =
                 ImportantNoticeUtils.shouldShowImportantNotice(this, currentSettingsValues);
-        // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — antes, a barra inteira
-        // (sugestões + botões de voz/clipboard) sumia sempre que o app de
-        // destino marcava o campo como "sem sugestões" (ex.: campos de
-        // busca, numéricos), mesmo quando o usuário não estava digitando
-        // senha nenhuma. Isso escondia também os botões de voz e área de
-        // transferência sem necessidade. Agora a barra só fica realmente
-        // oculta em campos de senha — em qualquer outro campo ela
-        // permanece visível, mesmo que sem sugestões de palavra (o
-        // conteúdo da faixa de sugestões em si continua vazio nesse caso,
-        // apenas o container e os botões extras continuam acessíveis).
-        final boolean shouldShowSuggestionsStripUnlessPassword = true;
-        final boolean shouldShowSuggestionsStrip = shouldShowSuggestionsStripUnlessPassword
-                && !currentSettingsValues.mInputAttributes.mIsPasswordField;
+        // XaulinXs Foundry: a pedido do usuário, a barra de sugestões
+        // agora fica SEMPRE visível, sem nenhuma exceção (nem campos de
+        // senha) — mesmo comportamento do teclado Samsung, que nunca
+        // esconde essa faixa. Isso mantém os botões de voz e área de
+        // transferência sempre acessíveis, e apenas o CONTEÚDO de
+        // sugestões de palavra (não a barra em si) fica vazio quando o app
+        // pede "sem sugestões" ou em campos de senha.
+        final boolean shouldShowSuggestionsStrip = true;
         mSuggestionStripView.updateVisibility(shouldShowSuggestionsStrip, isFullscreenMode());
         if (!shouldShowSuggestionsStrip) {
             return;

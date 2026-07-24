@@ -214,8 +214,17 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
     public void updateVisibility(final boolean shouldBeVisible, final boolean isFullscreenMode) {
         final int visibility = shouldBeVisible ? VISIBLE : (isFullscreenMode ? GONE : INVISIBLE);
         setVisibility(visibility);
-        final SettingsValues currentSettingsValues = Settings.getInstance().getCurrent();
-        mVoiceKey.setVisibility(currentSettingsValues.mShowsVoiceInputKey ? VISIBLE : INVISIBLE);
+        // XaulinXs Foundry: a pedido do usuário, o botão de voz agora fica
+        // SEMPRE visível, ignorando currentSettingsValues.mShowsVoiceInputKey
+        // — esse campo escondia o botão em campos de e-mail, URI, senha, ou
+        // quando o app pedia explicitamente para omitir o microfone
+        // (comportamento herdado de quando a voz dependia de um IME
+        // externo tipo Gboard). Como agora a voz é nosso próprio
+        // SpeechRecognizer, não faz sentido o app de destino decidir se
+        // ela aparece. mXaulinXsClipboardKey nunca teve essa lógica de
+        // ocultação condicional — já ficava visível sempre que a barra em
+        // si estava visível.
+        mVoiceKey.setVisibility(VISIBLE);
         // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — a barra de sugestões
         // continuava branca/cor padrão do tema mesmo com a cor
         // customizada do teclado ativada, quebrando a coesão visual com

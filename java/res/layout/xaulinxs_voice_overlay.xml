@@ -8,7 +8,6 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:gravity="center"
-    android:background="#F5F5F5"
     android:paddingTop="24dp"
     android:paddingBottom="24dp"
     android:minHeight="200dp">
