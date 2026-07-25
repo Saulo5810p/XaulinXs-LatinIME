@@ -1476,30 +1476,29 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             // See {@link InputMethodService#setInputView(View) and
             // com.android.internal.R.layout.input_method.xml.
             //
-            // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — esta é a causa raiz
-            // REAL do "teclado sobe para o topo da tela"/"área vazia
-            // ocupando a tela inteira" ao abrir voz ou clipboard. Este
-            // método é chamado INCONDICIONALMENTE por toda chamada a
-            // setInputView() (ver esse método logo acima), e força
-            // mInputView para MATCH_PARENT em modo não-fullscreen — o que
-            // é o comportamento certo para o MainKeyboardView normal (que
-            // tem conteúdo interno alinhado embaixo por design), mas errado
-            // para nossos overlays (LinearLayout wrap_content com
-            // gravity=center): ao virar MATCH_PARENT, o conteúdo passava a
-            // se centralizar no meio/topo de uma área do tamanho da tela
-            // inteira, em vez de ficar compacto e grudado embaixo. Os
-            // overlays XaulinXs usam sempre WRAP_CONTENT, independente do
-            // modo fullscreen — o mesmo comportamento visual de um painel
-            // normal.
+            // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO (v2 — a v1 aplicava
+            // WRAP_CONTENT também ao inputArea, o container PAI
+            // compartilhado por toda a janela; isso quebrava o
+            // Gravity.BOTTOM, que depende do pai continuar MATCH_PARENT
+            // para saber em relação a que área "embaixo" significa —
+            // resultado observado: o painel ocupando a tela inteira em vez
+            // de ficar compacto embaixo). Correção real: o inputArea (pai)
+            // continua MATCH_PARENT sempre que não estiver em fullscreen,
+            // igual ao comportamento original do AOSP — só mInputView (a
+            // view de conteúdo em si) usa WRAP_CONTENT quando for um dos
+            // overlays XaulinXs, para o painel ficar compacto e alinhado
+            // embaixo pelo Gravity.BOTTOM do pai, em vez de esticar.
             final boolean isXaulinXsOverlay =
                     mInputView == mXaulinXsVoiceOverlayView
                     || mInputView == mXaulinXsClipboardPanelView;
-            final int layoutHeight = (isFullscreenMode() || isXaulinXsOverlay)
+            final int parentLayoutHeight = isFullscreenMode()
+                    ? LayoutParams.WRAP_CONTENT : LayoutParams.MATCH_PARENT;
+            final int inputViewLayoutHeight = (isFullscreenMode() || isXaulinXsOverlay)
                     ? LayoutParams.WRAP_CONTENT : LayoutParams.MATCH_PARENT;
             final View inputArea = window.findViewById(android.R.id.inputArea);
-            ViewLayoutUtils.updateLayoutHeightOf(inputArea, layoutHeight);
+            ViewLayoutUtils.updateLayoutHeightOf(inputArea, parentLayoutHeight);
             ViewLayoutUtils.updateLayoutGravityOf(inputArea, Gravity.BOTTOM);
-            ViewLayoutUtils.updateLayoutHeightOf(mInputView, layoutHeight);
+            ViewLayoutUtils.updateLayoutHeightOf(mInputView, inputViewLayoutHeight);
         }
     }
 
