@@ -1475,7 +1475,26 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             // coexistent with {@link #mExtractedArea} above.
             // See {@link InputMethodService#setInputView(View) and
             // com.android.internal.R.layout.input_method.xml.
-            final int layoutHeight = isFullscreenMode()
+            //
+            // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — esta é a causa raiz
+            // REAL do "teclado sobe para o topo da tela"/"área vazia
+            // ocupando a tela inteira" ao abrir voz ou clipboard. Este
+            // método é chamado INCONDICIONALMENTE por toda chamada a
+            // setInputView() (ver esse método logo acima), e força
+            // mInputView para MATCH_PARENT em modo não-fullscreen — o que
+            // é o comportamento certo para o MainKeyboardView normal (que
+            // tem conteúdo interno alinhado embaixo por design), mas errado
+            // para nossos overlays (LinearLayout wrap_content com
+            // gravity=center): ao virar MATCH_PARENT, o conteúdo passava a
+            // se centralizar no meio/topo de uma área do tamanho da tela
+            // inteira, em vez de ficar compacto e grudado embaixo. Os
+            // overlays XaulinXs usam sempre WRAP_CONTENT, independente do
+            // modo fullscreen — o mesmo comportamento visual de um painel
+            // normal.
+            final boolean isXaulinXsOverlay =
+                    mInputView == mXaulinXsVoiceOverlayView
+                    || mInputView == mXaulinXsClipboardPanelView;
+            final int layoutHeight = (isFullscreenMode() || isXaulinXsOverlay)
                     ? LayoutParams.WRAP_CONTENT : LayoutParams.MATCH_PARENT;
             final View inputArea = window.findViewById(android.R.id.inputArea);
             ViewLayoutUtils.updateLayoutHeightOf(inputArea, layoutHeight);
