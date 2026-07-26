@@ -35,17 +35,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * View própria que substitui a área do teclado enquanto o painel de
- * histórico de área de transferência está aberto: lista os itens, permite
- * colar (tocar no item), excluir item individual, e limpar tudo.
+ * Conteúdo visual do painel de histórico de área de transferência.
  *
- * Toda interação com o histórico passa por {@link ClipboardHistoryManager},
- * que já é responsável por nunca deixar a leitura de um item da área de
- * transferência do sistema (em especial imagens) derrubar o app. Esta view
- * é puramente de apresentação da lista já carregada.
+ * ARQUITETURA (reescrita do zero): esta view NUNCA substitui o
+ * mInputView/teclado principal — ela é hospedada dentro de um
+ * {@link android.widget.PopupWindow} pelo {@link ClipboardPopupController},
+ * flutuando por cima do teclado normal, que permanece intocado o tempo
+ * todo. Isso elimina de raiz a classe de bugs da versão anterior, em que
+ * trocar o mInputView por este painel deixava o KeyboardSwitcher interno do
+ * AOSP com estado incoerente sempre que o Android reiniciava a sessão de
+ * digitação por conta própria enquanto o painel estava ativo.
  */
 public class ClipboardPanelView extends LinearLayout {
-    /** Callback para o chamador (LatinIME) reagir a ações do usuário no painel. */
+    /** Callback para o chamador reagir a ações do usuário no painel. */
     public interface Callback {
         void onItemChosen(ClipboardHistoryItem item);
         void onClosePanel();
@@ -78,12 +80,6 @@ public class ClipboardPanelView extends LinearLayout {
         }
     }
 
-    /**
-     * XaulinXs Foundry: aplica a cor de fundo customizada do teclado a este
-     * painel, para ele seguir o mesmo design visual do resto do app em vez
-     * de usar sempre a mesma cor cinza-claro fixa. Getters de
-     * CustomizationPrefs nunca lançam exceção.
-     */
     private void applyXaulinXsTheme(final Context context) {
         final int backgroundColor;
         if (CustomizationPrefs.isKeyboardColorEnabled(context)) {

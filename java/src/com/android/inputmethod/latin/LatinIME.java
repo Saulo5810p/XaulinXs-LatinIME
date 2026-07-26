@@ -104,9 +104,11 @@ import com.android.inputmethod.latin.utils.ViewLayoutUtils;
 import com.xaulinxs.clipboard.ClipboardHistoryItem;
 import com.xaulinxs.clipboard.ClipboardHistoryManager;
 import com.xaulinxs.clipboard.ClipboardPanelView;
+import com.xaulinxs.clipboard.ClipboardPopupController;
 import com.xaulinxs.voice.VoiceInputManager;
 import com.xaulinxs.voice.VoiceInputOverlayView;
 import com.xaulinxs.voice.VoicePermissionActivity;
+import com.xaulinxs.voice.VoicePopupController;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -168,14 +170,19 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     private RichInputMethodManager mRichImm;
 
-    // ---- XaulinXs Foundry: digitação por voz ----
+    // ---- XaulinXs Foundry: digitação por voz e área de transferência ----
+    // ARQUITETURA (reescrita do zero): voz e clipboard agora são
+    // PopupWindows flutuando por cima do teclado (ver
+    // VoicePopupController/ClipboardPopupController), nunca substituem o
+    // mInputView. Isso elimina a classe de bugs em que o Android reiniciava
+    // a sessão de digitação por conta própria enquanto a tela de voz/
+    // clipboard ocupava o lugar do teclado, deixando o KeyboardSwitcher
+    // interno do AOSP com estado incoerente (visto na prática como o
+    // teclado saltando de tamanho/posição e uma "barreira" de toque).
     private VoiceInputManager mXaulinXsVoiceInputManager;
-    private VoiceInputOverlayView mXaulinXsVoiceOverlayView;
-    private View mXaulinXsSavedKeyboardView;
-
-    // ---- XaulinXs Foundry: área de transferência ----
+    private VoicePopupController mXaulinXsVoicePopupController;
     private ClipboardHistoryManager mXaulinXsClipboardHistoryManager;
-    private ClipboardPanelView mXaulinXsClipboardPanelView;
+    private ClipboardPopupController mXaulinXsClipboardPopupController;
     private final BroadcastReceiver mXaulinXsVoicePermissionReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(final Context context, final Intent intent) {
@@ -691,12 +698,15 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             registerReceiver(mXaulinXsVoicePermissionReceiver, voicePermissionFilter);
         }
         mXaulinXsVoiceInputManager = new VoiceInputManager(this, new XaulinXsVoiceCallback());
+        mXaulinXsVoicePopupController = new VoicePopupController(this);
 
         // XaulinXs Foundry: histórico de área de transferência começa a
         // escutar assim que o serviço é criado, para capturar cópias
         // feitas em qualquer app, não só enquanto o painel está aberto.
         mXaulinXsClipboardHistoryManager = new ClipboardHistoryManager(this);
         mXaulinXsClipboardHistoryManager.startListening();
+        mXaulinXsClipboardPopupController =
+                new ClipboardPopupController(this, mXaulinXsClipboardHistoryManager);
 
         final IntentFilter hideSoftInputFilter = new IntentFilter();
         hideSoftInputFilter.addAction(ACTION_HIDE_SOFT_INPUT);
@@ -827,8 +837,14 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         if (mXaulinXsVoiceInputManager != null) {
             mXaulinXsVoiceInputManager.release();
         }
+        if (mXaulinXsVoicePopupController != null) {
+            mXaulinXsVoicePopupController.hide();
+        }
         if (mXaulinXsClipboardHistoryManager != null) {
             mXaulinXsClipboardHistoryManager.stopListening();
+        }
+        if (mXaulinXsClipboardPopupController != null) {
+            mXaulinXsClipboardPopupController.hide();
         }
         mStatsUtilsManager.onDestroy(this /* context */);
         super.onDestroy();
@@ -993,28 +1009,18 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     void onStartInputViewInternal(final EditorInfo editorInfo, final boolean restarting) {
         super.onStartInputView(editorInfo, restarting);
 
-        // XaulinXs Foundry: BUG CRÔNICO — investigação encontrou que o
-        // Android periodicamente reinicia a sessão de input
-        // (hideSoftInput/showSoftInput + onStartInputView, confirmado via
-        // logcat capturado simultaneamente com o bug) por conta própria,
-        // não necessariamente por ação do usuário. Se isso acontecer
-        // enquanto um dos nossos overlays (voz/clipboard) está ativo como
-        // mInputView, o KeyboardSwitcher abaixo é recriado/tem seu estado
-        // salvo e restaurado (onSaveKeyboardState/onRestoreKeyboardState)
-        // com o overlay ocupando o lugar do teclado real — deixando o
-        // KeyboardSwitcher e a InputView em estados incoerentes um com o
-        // outro (visto na prática como o teclado saltando de tamanho/
-        // posição e a barreira de toque invisível). Correção: se um
-        // overlay estiver ativo neste momento, fecha ele e restaura o
-        // teclado normal ANTES de deixar o resto deste método (que mexe no
-        // KeyboardSwitcher) prosseguir, garantindo que o KeyboardSwitcher
-        // nunca opere tendo o overlay como mInputView.
-        if (mInputView == mXaulinXsVoiceOverlayView
-                || mInputView == mXaulinXsClipboardPanelView) {
-            if (mXaulinXsVoiceInputManager != null) {
-                mXaulinXsVoiceInputManager.cancelListening();
-            }
-            restoreXaulinXsKeyboardView();
+        // XaulinXs Foundry: com a arquitetura de PopupWindow (voz/clipboard
+        // nunca substituem mInputView), fecha qualquer popup ainda aberto
+        // ao reiniciar a sessão de input — simples cuidado de higiene, não
+        // uma correção de bug: como o teclado principal nunca é trocado,
+        // não há mais risco de KeyboardSwitcher operar em estado
+        // incoerente, mas ainda não faz sentido deixar um popup de uma
+        // sessão anterior visível numa sessão nova.
+        if (mXaulinXsVoicePopupController != null) {
+            mXaulinXsVoicePopupController.hide();
+        }
+        if (mXaulinXsClipboardPopupController != null) {
+            mXaulinXsClipboardPopupController.hide();
         }
 
         mDictionaryFacilitator.onStartInput();
@@ -1341,27 +1347,6 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         if (mInputView == null) {
             return;
         }
-        // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — esta é a causa raiz real
-        // do "teclado sobe para o topo da tela" e "área de toque vazia
-        // ocupando a tela inteira" ao abrir o overlay de voz ou o painel de
-        // clipboard. Quando um desses overlays está ativo, mInputView é o
-        // overlay (não o teclado normal), então
-        // mKeyboardSwitcher.getVisibleKeyboardView() retorna null e
-        // hasSuggestionStripView() é false — o código original abaixo
-        // simplesmente retornava sem chamar mInsetsUpdater.setInsets(),
-        // deixando o sistema de janelas do Android com os insets ANTIGOS do
-        // teclado normal "presos", incoerentes com o overlay pequeno
-        // realmente sendo exibido. Calculamos aqui os insets corretos para
-        // a altura real do overlay atual, do mesmo jeito que o teclado
-        // normal faz para si mesmo.
-        if (mXaulinXsVoiceOverlayView != null && mInputView == mXaulinXsVoiceOverlayView) {
-            applyXaulinXsOverlayInsets(outInsets, mXaulinXsVoiceOverlayView);
-            return;
-        }
-        if (mXaulinXsClipboardPanelView != null && mInputView == mXaulinXsClipboardPanelView) {
-            applyXaulinXsOverlayInsets(outInsets, mXaulinXsClipboardPanelView);
-            return;
-        }
         final SettingsValues settingsValues = mSettings.getCurrent();
         final View visibleKeyboardView = mKeyboardSwitcher.getVisibleKeyboardView();
         if (visibleKeyboardView == null || !hasSuggestionStripView()) {
@@ -1393,51 +1378,6 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         outInsets.contentTopInsets = visibleTopY;
         outInsets.visibleTopInsets = visibleTopY;
         mInsetsUpdater.setInsets(outInsets);
-    }
-
-    /**
-     * Calcula e aplica os insets de janela para um overlay XaulinXs (voz ou
-     * clipboard) que substituiu o teclado normal — mesmo princípio do
-     * cálculo original do teclado (linhas acima), mas usando a altura real
-     * do overlay em vez da altura do MainKeyboardView/SuggestionStripView,
-     * que não existem na árvore de views enquanto o overlay está ativo.
-     */
-    private void applyXaulinXsOverlayInsets(final InputMethodService.Insets outInsets,
-            final View overlayView) {
-        try {
-            final int overlayHeight = overlayView.getHeight();
-            if (overlayHeight <= 0) {
-                // View ainda não mediu/desenhou nesta passada de layout —
-                // não define insets neste frame em vez de aplicar um valor
-                // de altura zero incorreto; a próxima chamada a
-                // onComputeInsets (o sistema chama repetidamente durante o
-                // layout) vai corrigir assim que a altura real existir.
-                return;
-            }
-            // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — usava
-            // mInputView.getHeight() aqui, mas overlayView É o mInputView
-            // quando o overlay está ativo (mesma referência!), então
-            // inputHeight - overlayHeight sempre dava 0, nunca calculando
-            // um espaço vazio de verdade. O que precisamos é a altura da
-            // JANELA/container pai real (inputArea), que continua
-            // MATCH_PARENT (tela cheia) mesmo com o overlay pequeno dentro
-            // dela — é em relação a essa altura maior que o "topo visível"
-            // do overlay precisa ser calculado.
-            final Window window = getWindow().getWindow();
-            final View inputArea = window.findViewById(android.R.id.inputArea);
-            final int windowHeight = (inputArea != null && inputArea.getHeight() > 0)
-                    ? inputArea.getHeight() : overlayHeight;
-            final int visibleTopY = Math.max(0, windowHeight - overlayHeight);
-            outInsets.contentTopInsets = visibleTopY;
-            outInsets.visibleTopInsets = visibleTopY;
-            outInsets.touchableInsets = InputMethodService.Insets.TOUCHABLE_INSETS_REGION;
-            outInsets.touchableRegion.set(0, visibleTopY, overlayView.getWidth(), windowHeight);
-            mInsetsUpdater.setInsets(outInsets);
-        } catch (final Exception e) {
-            // Nunca deixa o cálculo de insets de um overlay derrubar o
-            // teclado — na pior hipótese, os insets deste frame específico
-            // ficam desatualizados, mas o app continua funcionando.
-        }
     }
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
@@ -1512,29 +1452,18 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             // See {@link InputMethodService#setInputView(View) and
             // com.android.internal.R.layout.input_method.xml.
             //
-            // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO (v2 — a v1 aplicava
-            // WRAP_CONTENT também ao inputArea, o container PAI
-            // compartilhado por toda a janela; isso quebrava o
-            // Gravity.BOTTOM, que depende do pai continuar MATCH_PARENT
-            // para saber em relação a que área "embaixo" significa —
-            // resultado observado: o painel ocupando a tela inteira em vez
-            // de ficar compacto embaixo). Correção real: o inputArea (pai)
-            // continua MATCH_PARENT sempre que não estiver em fullscreen,
-            // igual ao comportamento original do AOSP — só mInputView (a
-            // view de conteúdo em si) usa WRAP_CONTENT quando for um dos
-            // overlays XaulinXs, para o painel ficar compacto e alinhado
-            // embaixo pelo Gravity.BOTTOM do pai, em vez de esticar.
-            final boolean isXaulinXsOverlay =
-                    mInputView == mXaulinXsVoiceOverlayView
-                    || mInputView == mXaulinXsClipboardPanelView;
-            final int parentLayoutHeight = isFullscreenMode()
-                    ? LayoutParams.WRAP_CONTENT : LayoutParams.MATCH_PARENT;
-            final int inputViewLayoutHeight = (isFullscreenMode() || isXaulinXsOverlay)
+            // XaulinXs Foundry: este método voltou ao comportamento 100%
+            // original do AOSP. Com a arquitetura de PopupWindow (voz e
+            // clipboard nunca substituem mInputView — ver
+            // VoicePopupController/ClipboardPopupController), mInputView é
+            // sempre a MainKeyboardView normal, então nenhuma lógica
+            // especial de overlay é necessária aqui.
+            final int layoutHeight = isFullscreenMode()
                     ? LayoutParams.WRAP_CONTENT : LayoutParams.MATCH_PARENT;
             final View inputArea = window.findViewById(android.R.id.inputArea);
-            ViewLayoutUtils.updateLayoutHeightOf(inputArea, parentLayoutHeight);
+            ViewLayoutUtils.updateLayoutHeightOf(inputArea, layoutHeight);
             ViewLayoutUtils.updateLayoutGravityOf(inputArea, Gravity.BOTTOM);
-            ViewLayoutUtils.updateLayoutHeightOf(mInputView, inputViewLayoutHeight);
+            ViewLayoutUtils.updateLayoutHeightOf(mInputView, layoutHeight);
         }
     }
 
@@ -1572,72 +1501,32 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     @Override
     public void showXaulinXsClipboardPanel() {
-        // XaulinXs Foundry: mesma correção aplicada em showXaulinXsVoiceOverlay
-        // — mInputView é a view raiz real, getMainKeyboardView() retornava
-        // só a view interna do teclado, corrompendo a hierarquia ao
-        // restaurar depois.
-        final View currentRootView = mInputView;
-        if (currentRootView == null || mXaulinXsClipboardHistoryManager == null) {
+        // XaulinXs Foundry: ARQUITETURA NOVA — o painel é um PopupWindow
+        // ancorado na view do teclado atual, nunca substitui mInputView.
+        // Ver Javadoc de ClipboardPopupController para o porquê.
+        final View anchorView = mKeyboardSwitcher.getMainKeyboardView();
+        if (anchorView == null || mXaulinXsClipboardPopupController == null) {
             return;
         }
-        try {
-            if (mXaulinXsClipboardPanelView == null) {
-                mXaulinXsClipboardPanelView = new ClipboardPanelView(this);
-                mXaulinXsClipboardPanelView.bind(mXaulinXsClipboardHistoryManager,
-                        new XaulinXsClipboardCallback());
-                mXaulinXsClipboardHistoryManager.setListener(
-                        history -> {
-                            if (mXaulinXsClipboardPanelView != null) {
-                                mXaulinXsClipboardPanelView.refresh(history);
-                            }
-                        });
-            } else {
-                mXaulinXsClipboardPanelView.refresh(
-                        mXaulinXsClipboardHistoryManager.loadHistory());
-            }
-            // Só salva a referência do teclado se ainda não estivermos com
-            // outro overlay (voz) aberto — evita perder a referência
-            // original do teclado real ao alternar entre os dois painéis.
-            if (mXaulinXsSavedKeyboardView == null) {
-                mXaulinXsSavedKeyboardView = currentRootView;
-            }
-            setInputView(mXaulinXsClipboardPanelView);
-        } catch (final Exception e) {
-            // Mesmo princípio defensivo do overlay de voz: qualquer falha
-            // ao montar/exibir o painel não deve deixar o teclado num
-            // estado quebrado — simplesmente não abre o painel desta vez.
-            mXaulinXsSavedKeyboardView = null;
-        }
-    }
-
-    private void closeXaulinXsClipboardPanel() {
-        restoreXaulinXsKeyboardView();
-    }
-
-    /**
-     * Implementação de ClipboardPanelView.Callback: insere o texto
-     * escolhido via o mesmo caminho onTextInput() usado pelo restante do
-     * teclado, e fecha o painel. Nunca lida com conteúdo de imagem — ver
-     * ClipboardHistoryManager para a justificativa dessa decisão.
-     */
-    private final class XaulinXsClipboardCallback implements ClipboardPanelView.Callback {
-        @Override
-        public void onItemChosen(final ClipboardHistoryItem item) {
-            try {
-                if (item.text != null) {
-                    onTextInput(item.text);
+        mXaulinXsClipboardPopupController.show(anchorView, new ClipboardPanelView.Callback() {
+            @Override
+            public void onItemChosen(final ClipboardHistoryItem item) {
+                try {
+                    if (item.text != null) {
+                        onTextInput(item.text);
+                    }
+                } catch (final Exception e) {
+                    // Falha ao colar (campo perdeu foco, etc.) não deve
+                    // deixar o painel travado aberto — ainda fechamos.
                 }
-            } catch (final Exception e) {
-                // Falha ao colar (campo perdeu foco, etc.) não deve deixar
-                // o painel travado aberto — ainda fechamos abaixo.
+                mXaulinXsClipboardPopupController.hide();
             }
-            closeXaulinXsClipboardPanel();
-        }
 
-        @Override
-        public void onClosePanel() {
-            closeXaulinXsClipboardPanel();
-        }
+            @Override
+            public void onClosePanel() {
+                mXaulinXsClipboardPopupController.hide();
+            }
+        });
     }
 
     @Override
@@ -1775,21 +1664,28 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     // ---- XaulinXs Foundry: digitação por voz ----
 
     private void startXaulinXsVoiceInput() {
-        if (mXaulinXsVoiceInputManager == null) {
+        if (mXaulinXsVoiceInputManager == null || mXaulinXsVoicePopupController == null) {
             return;
         }
         if (!mXaulinXsVoiceInputManager.hasRecordAudioPermission()) {
             requestXaulinXsVoicePermission();
             return;
         }
-        showXaulinXsVoiceOverlay();
+        // XaulinXs Foundry: ARQUITETURA NOVA — a tela de voz é um
+        // PopupWindow ancorado na view do teclado atual, nunca substitui
+        // mInputView. Ver Javadoc de VoicePopupController para o porquê.
+        final View anchorView = mKeyboardSwitcher.getMainKeyboardView();
+        if (anchorView == null) {
+            return;
+        }
+        mXaulinXsVoicePopupController.show(anchorView, this::cancelXaulinXsVoiceInput);
         try {
             mXaulinXsVoiceInputManager.startListening(mRichImm.getCurrentSubtypeLocale());
         } catch (final Exception e) {
             // getCurrentSubtypeLocale() ou qualquer outra chamada aqui
-            // falhando não deve deixar o overlay travado sem teclado por
-            // trás — restaura o teclado normal imediatamente.
-            restoreXaulinXsKeyboardView();
+            // falhando não deve deixar o popup aberto sem escuta real
+            // acontecendo — fecha o popup imediatamente.
+            mXaulinXsVoicePopupController.hide();
         }
     }
 
@@ -1804,134 +1700,96 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         }
     }
 
-    private void showXaulinXsVoiceOverlay() {
-        // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — usar
-        // mKeyboardSwitcher.getMainKeyboardView() aqui capturava apenas a
-        // view interna do teclado (sem a barra de sugestões/container ao
-        // redor), não a hierarquia de view raiz real passada da última vez
-        // que setInputView() foi chamado pelo fluxo normal do teclado.
-        // Restaurar essa referência errada depois reestruturava a árvore
-        // de views incorretamente: a barra de sugestões sumia, o teclado
-        // saltava para o topo da tela e a área de toque ficava
-        // dessincronizada do que era desenhado. mInputView é o campo que
-        // sempre reflete a última view raiz real passada a setInputView().
-        final View currentRootView = mInputView;
-        if (currentRootView == null) {
-            return;
-        }
-        try {
-            if (mXaulinXsVoiceOverlayView == null) {
-                mXaulinXsVoiceOverlayView = new VoiceInputOverlayView(this);
-                mXaulinXsVoiceOverlayView.setCancelListener(v -> cancelXaulinXsVoiceInput());
-            }
-            mXaulinXsVoiceOverlayView.showListening();
-            if (mXaulinXsSavedKeyboardView == null) {
-                mXaulinXsSavedKeyboardView = currentRootView;
-            }
-            setInputView(mXaulinXsVoiceOverlayView);
-        } catch (final Exception e) {
-            // Se a troca de view falhar por qualquer motivo, garante que
-            // não ficamos com um estado inconsistente: cancela a escuta
-            // que talvez já tenha iniciado e mantém o teclado normal.
-            if (mXaulinXsVoiceInputManager != null) {
-                mXaulinXsVoiceInputManager.cancelListening();
-            }
-            mXaulinXsSavedKeyboardView = null;
-        }
-    }
-
-    private void restoreXaulinXsKeyboardView() {
-        try {
-            if (mXaulinXsSavedKeyboardView != null) {
-                setInputView(mXaulinXsSavedKeyboardView);
-            } else {
-                // Fallback: se por algum motivo a referência salva se
-                // perdeu (ex.: processo recriado no meio da escuta), força
-                // uma recriação normal da view de teclado em vez de deixar
-                // o overlay de voz preso na tela para sempre.
-                setInputView(onCreateInputView());
-            }
-        } catch (final Exception e) {
-            // Último recurso: nada mais a fazer aqui além de não propagar
-            // a exceção; o pior caso é o usuário precisar trocar de campo
-            // de texto para o teclado normal reaparecer.
-        } finally {
-            mXaulinXsSavedKeyboardView = null;
-        }
-    }
-
     private void cancelXaulinXsVoiceInput() {
         if (mXaulinXsVoiceInputManager != null) {
             mXaulinXsVoiceInputManager.cancelListening();
         }
-        restoreXaulinXsKeyboardView();
+        if (mXaulinXsVoicePopupController != null) {
+            mXaulinXsVoicePopupController.hide();
+        }
     }
 
     /**
      * Implementação de VoiceInputManager.Callback: reage aos eventos do
-     * reconhecedor de voz atualizando o overlay e, no resultado final,
+     * reconhecedor de voz atualizando o popup e, no resultado final,
      * inserindo o texto reconhecido via o mesmo caminho onTextInput()
-     * usado pelo próprio teclado (glide typing), e restaurando a view do
-     * teclado normal. Todo método aqui é curto e defensivo — qualquer
-     * exceção inesperada resulta em restaurar o teclado normal, nunca em
-     * deixar o overlay de voz preso na tela.
+     * usado pelo próprio teclado (glide typing). Todo método aqui é curto
+     * e defensivo — qualquer exceção inesperada resulta em fechar o popup,
+     * nunca em deixá-lo preso na tela. Como o teclado principal nunca é
+     * tocado por esta arquitetura, não há necessidade de "restaurar" nada
+     * além de fechar o popup em si.
      */
     private final class XaulinXsVoiceCallback implements VoiceInputManager.Callback {
         @Override
         public void onListeningStarted() {
-            if (mXaulinXsVoiceOverlayView != null) {
-                mXaulinXsVoiceOverlayView.showListening();
+            final VoiceInputOverlayView overlay = currentOverlay();
+            if (overlay != null) {
+                overlay.showListening();
             }
         }
 
         @Override
         public void onPartialResult(final String partialText) {
-            if (mXaulinXsVoiceOverlayView != null) {
-                mXaulinXsVoiceOverlayView.showPartialText(partialText);
+            final VoiceInputOverlayView overlay = currentOverlay();
+            if (overlay != null) {
+                overlay.showPartialText(partialText);
             }
         }
 
         @Override
         public void onFinalResult(final String finalText) {
-            if (mXaulinXsVoiceOverlayView != null) {
-                mXaulinXsVoiceOverlayView.showProcessing();
+            final VoiceInputOverlayView overlay = currentOverlay();
+            if (overlay != null) {
+                overlay.showProcessing();
             }
             try {
                 onTextInput(finalText);
             } catch (final Exception e) {
                 // Se a inserção do texto falhar por qualquer motivo
                 // (campo de texto perdeu o foco durante a escuta, etc.),
-                // ainda assim restauramos o teclado normal a seguir —
-                // melhor perder o texto ditado do que travar a UI.
+                // ainda assim fechamos o popup a seguir — melhor perder o
+                // texto ditado do que deixar a UI presa.
             }
-            restoreXaulinXsKeyboardView();
+            if (mXaulinXsVoicePopupController != null) {
+                mXaulinXsVoicePopupController.hide();
+            }
         }
 
         @Override
         public void onError(final int messageResId) {
-            if (mXaulinXsVoiceOverlayView != null) {
-                mXaulinXsVoiceOverlayView.showError(messageResId);
+            final VoiceInputOverlayView overlay = currentOverlay();
+            if (overlay != null) {
+                overlay.showError(messageResId);
             }
             // Dá um instante para o usuário ler a mensagem de erro antes
-            // de voltar ao teclado normal automaticamente.
-            mHandler.postDelayed(this::restoreAfterError, 1500);
+            // de fechar o popup automaticamente.
+            mHandler.postDelayed(this::closeAfterError, 1500);
         }
 
-        private void restoreAfterError() {
-            restoreXaulinXsKeyboardView();
+        private void closeAfterError() {
+            if (mXaulinXsVoicePopupController != null) {
+                mXaulinXsVoicePopupController.hide();
+            }
         }
 
         @Override
         public void onNoPermission() {
             requestXaulinXsVoicePermission();
-            restoreXaulinXsKeyboardView();
+            if (mXaulinXsVoicePopupController != null) {
+                mXaulinXsVoicePopupController.hide();
+            }
         }
 
         @Override
         public void onListeningEnded() {
             // Tratado explicitamente por quem chama cancelListening()
-            // (cancelXaulinXsVoiceInput já restaura a view); nada adicional
+            // (cancelXaulinXsVoiceInput já fecha o popup); nada adicional
             // necessário aqui.
+        }
+
+        private VoiceInputOverlayView currentOverlay() {
+            return mXaulinXsVoicePopupController != null
+                    ? mXaulinXsVoicePopupController.getOverlayView() : null;
         }
     }
 
