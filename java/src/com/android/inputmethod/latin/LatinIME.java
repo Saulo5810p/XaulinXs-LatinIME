@@ -993,6 +993,30 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     void onStartInputViewInternal(final EditorInfo editorInfo, final boolean restarting) {
         super.onStartInputView(editorInfo, restarting);
 
+        // XaulinXs Foundry: BUG CRÔNICO — investigação encontrou que o
+        // Android periodicamente reinicia a sessão de input
+        // (hideSoftInput/showSoftInput + onStartInputView, confirmado via
+        // logcat capturado simultaneamente com o bug) por conta própria,
+        // não necessariamente por ação do usuário. Se isso acontecer
+        // enquanto um dos nossos overlays (voz/clipboard) está ativo como
+        // mInputView, o KeyboardSwitcher abaixo é recriado/tem seu estado
+        // salvo e restaurado (onSaveKeyboardState/onRestoreKeyboardState)
+        // com o overlay ocupando o lugar do teclado real — deixando o
+        // KeyboardSwitcher e a InputView em estados incoerentes um com o
+        // outro (visto na prática como o teclado saltando de tamanho/
+        // posição e a barreira de toque invisível). Correção: se um
+        // overlay estiver ativo neste momento, fecha ele e restaura o
+        // teclado normal ANTES de deixar o resto deste método (que mexe no
+        // KeyboardSwitcher) prosseguir, garantindo que o KeyboardSwitcher
+        // nunca opere tendo o overlay como mInputView.
+        if (mInputView == mXaulinXsVoiceOverlayView
+                || mInputView == mXaulinXsClipboardPanelView) {
+            if (mXaulinXsVoiceInputManager != null) {
+                mXaulinXsVoiceInputManager.cancelListening();
+            }
+            restoreXaulinXsKeyboardView();
+        }
+
         mDictionaryFacilitator.onStartInput();
         // Switch to the null consumer to handle cases leading to early exit below, for which we
         // also wouldn't be consuming gesture data.
@@ -1390,12 +1414,24 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
                 // layout) vai corrigir assim que a altura real existir.
                 return;
             }
-            final int inputHeight = mInputView.getHeight();
-            final int visibleTopY = Math.max(0, inputHeight - overlayHeight);
+            // XaulinXs Foundry: BUG CRÔNICO CORRIGIDO — usava
+            // mInputView.getHeight() aqui, mas overlayView É o mInputView
+            // quando o overlay está ativo (mesma referência!), então
+            // inputHeight - overlayHeight sempre dava 0, nunca calculando
+            // um espaço vazio de verdade. O que precisamos é a altura da
+            // JANELA/container pai real (inputArea), que continua
+            // MATCH_PARENT (tela cheia) mesmo com o overlay pequeno dentro
+            // dela — é em relação a essa altura maior que o "topo visível"
+            // do overlay precisa ser calculado.
+            final Window window = getWindow().getWindow();
+            final View inputArea = window.findViewById(android.R.id.inputArea);
+            final int windowHeight = (inputArea != null && inputArea.getHeight() > 0)
+                    ? inputArea.getHeight() : overlayHeight;
+            final int visibleTopY = Math.max(0, windowHeight - overlayHeight);
             outInsets.contentTopInsets = visibleTopY;
             outInsets.visibleTopInsets = visibleTopY;
             outInsets.touchableInsets = InputMethodService.Insets.TOUCHABLE_INSETS_REGION;
-            outInsets.touchableRegion.set(0, visibleTopY, overlayView.getWidth(), inputHeight);
+            outInsets.touchableRegion.set(0, visibleTopY, overlayView.getWidth(), windowHeight);
             mInsetsUpdater.setInsets(outInsets);
         } catch (final Exception e) {
             // Nunca deixa o cálculo de insets de um overlay derrubar o
