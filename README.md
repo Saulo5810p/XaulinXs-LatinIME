@@ -16,7 +16,7 @@
 ![AOSP](https://img.shields.io/badge/Based%20on-AOSP%20LatinIME-1DE9B6?style=for-the-badge&labelColor=0D1117)
 ![Gradle](https://img.shields.io/badge/Gradle-Modern-00BCD4?style=for-the-badge&labelColor=0D1117)
 ![AGP](https://img.shields.io/badge/AGP-Atualizado-64FFDA?style=for-the-badge&labelColor=0D1117)
-![API](https://img.shields.io/badge/API-28--34-00E5FF?style=for-the-badge&labelColor=0D1117)
+![API](https://img.shields.io/badge/API-21--34-00E5FF?style=for-the-badge&labelColor=0D1117)
 ![License](https://img.shields.io/badge/License-Apache--2.0-1DE9B6?style=for-the-badge&labelColor=0D1117)
 
 </div>
@@ -35,6 +35,8 @@ O **XaulinXs LatinIME** nasce para resolver isso de verdade:
 
 > Modernizar o sistema de build do teclado oficial do AOSP, permitindo gerar APKs diretamente pelo **GitHub Actions**, com **Gradle** e **Android Gradle Plugin** atualizados — sem depender da compilação completa do AOSP, sem Android Studio, e **preservando o visual Material original do Google**.
 
+Mas o XaulinXs LatinIME não para na modernização do build. Em cima da engine de digitação madura e testada do AOSP — a mesma que gestos, sugestões e dicionários de outros teclados de mercado usam como base — foram construídos recursos que faltavam no LatinIME original: **digitação por voz nativa**, **histórico de área de transferência** e **personalização visual completa** (papel de parede, cores, transparência, tamanho e fonte customizada). O resultado é um teclado open-source que compete de igual para igual com os grandes forks do LatinIME que dominam o mercado — como os usados por ROMs como o LineageOS — sem abrir mão da base sólida e comprovada do AOSP.
+
 Basta ir até a aba **Actions**, rodar o workflow, e o APK funcional sai pronto.
 
 ---
@@ -47,9 +49,11 @@ Basta ir até a aba **Actions**, rodar o workflow, e o APK funcional sai pronto.
 - ✅ **Não precisa** baixar a árvore completa do AOSP
 - ✅ **Não precisa** de Android Studio
 - ✅ Mantém o **Material Design original do Google** — o que a maioria dos forks remove
-- ✅ Recursos de design adicionais, sem descaracterizar o teclado
+- ✅ Compatível de **Android 5.0 (API 21) até Android 14** — o mesmo alcance dos grandes forks de mercado
+- ✅ **Digitação por voz de verdade**, via `SpeechRecognizer` nativo, com interface própria — sem depender de nenhum app externo instalado
+- ✅ **Histórico de área de transferência** embutido, com painel dedicado e opção de limpar tudo
+- ✅ **Personalização visual completa**: papel de parede do teclado, cor de fundo, cor da fonte, transparência, tamanho e fonte customizada (TTF) via gerenciador de arquivos próprio
 - ✅ Engine nativa em C++ para o dicionário, com build via CMake
-- ✅ Compatível com Android 9 até Android 14
 - ✅ Aberto para estudo, modificação e engenharia reversa
 
 ---
@@ -58,6 +62,12 @@ Basta ir até a aba **Actions**, rodar o workflow, e o APK funcional sai pronto.
 
 <p align="center">
   <img src="assets/banner.png" width="820" alt="XaulinXs LatinIME em destaque">
+</p>
+
+<p align="center">
+  <img src="assets/design.png" width="280" alt="XaulinXs LatinIME com tema customizado">
+  &nbsp;&nbsp;&nbsp;
+  <img src="assets/configs.PNG" width="280" alt="Tela de personalização do XaulinXs LatinIME">
 </p>
 
 <p align="center">
@@ -119,6 +129,10 @@ cd XaulinXs-LatinIME
 
 | Android    | Suporte |
 |------------|:-------:|
+| Android 5  | ✅ |
+| Android 6  | ✅ |
+| Android 7  | ✅ |
+| Android 8  | ✅ |
 | Android 9  | ✅ |
 | Android 10 | ✅ |
 | Android 11 | ✅ |

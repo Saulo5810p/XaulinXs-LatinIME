@@ -46,6 +46,23 @@ android {
         debug {
             storeFile file("java/shared.keystore")
         }
+        release {
+            // XaulinXs Foundry: mesmo padrão de assinatura já usado no
+            // RetroPlayer — credenciais nunca hardcoded aqui (este arquivo
+            // é público no GitHub). Lidas via variáveis de ambiente que o
+            // workflow do GitHub Actions injeta a partir dos Secrets do
+            // repositório (KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD), e
+            // o arquivo da keystore em si é decodificado de
+            // KEYSTORE_BASE64 para java/release.keystore antes do build.
+            // Se essas variáveis não estiverem definidas (build local sem
+            // as env vars), os valores ficam null e o Gradle falha ao
+            // tentar assinar o release — comportamento esperado, evita
+            // publicar um release sem assinatura de verdade por engano.
+            storeFile file("java/release.keystore")
+            storePassword System.getenv("KEYSTORE_PASSWORD")
+            keyAlias System.getenv("KEY_ALIAS")
+            keyPassword System.getenv("KEY_PASSWORD")
+        }
     }
 
     buildTypes {
@@ -53,6 +70,7 @@ android {
             minifyEnabled false
         }
         release {
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard.flags'
         }
     }
