@@ -202,6 +202,21 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             }
         }
     };
+    // XaulinXs Foundry: suporte a Direct Boot — ver comentário completo em
+    // onCreate() e no AndroidManifest.xml. Reforça a migração de
+    // preferências quando o usuário desbloqueia o dispositivo.
+    private final BroadcastReceiver mXaulinXsUserUnlockedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(final Context context, final Intent intent) {
+            try {
+                com.xaulinxs.bootaware.DirectBootHelper
+                        .migratePreferencesToDeviceProtectedStorageIfNeeded(LatinIME.this);
+            } catch (final Exception e) {
+                // Nunca deixa esse tratamento derrubar o teclado — na pior
+                // hipótese, a migração de reforço não acontece desta vez.
+            }
+        }
+    };
     @UsedForTesting final KeyboardSwitcher mKeyboardSwitcher;
     private final SubtypeState mSubtypeState = new SubtypeState();
     private EmojiAltPhysicalKeyDetector mEmojiAltPhysicalKeyDetector;
@@ -637,8 +652,27 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
 
     @Override
     public void onCreate() {
-        Settings.init(this);
-        DebugFlags.init(PreferenceManager.getDefaultSharedPreferences(this));
+        // XaulinXs Foundry: suporte a Direct Boot. Se o usuário ainda não
+        // desbloqueou o dispositivo neste boot, migra as preferências
+        // salvas para o storage protegido por dispositivo (sempre
+        // acessível) e usa um Context apontando para esse storage em vez
+        // do padrão (protegido por credencial, indisponível até o
+        // desbloqueio) — sem isso, Settings.init() abaixo poderia falhar
+        // silenciosamente ou lançar exceção ao tentar ler preferências
+        // antes do primeiro desbloqueio, e o teclado (que é
+        // directBootAware="true" no manifest, propositalmente, para
+        // continuar disponível na tela de bloqueio) ficaria quebrado bem
+        // no momento em que mais precisa funcionar. Getters do
+        // DirectBootHelper nunca lançam exceção; em qualquer falha,
+        // devolvem o Context original, preservando o comportamento
+        // anterior a esta mudança.
+        com.xaulinxs.bootaware.DirectBootHelper
+                .migratePreferencesToDeviceProtectedStorageIfNeeded(this);
+        final Context xaulinXsBootAwareContext =
+                com.xaulinxs.bootaware.DirectBootHelper.resolveBootAwareContext(this);
+
+        Settings.init(xaulinXsBootAwareContext);
+        DebugFlags.init(PreferenceManager.getDefaultSharedPreferences(xaulinXsBootAwareContext));
         RichInputMethodManager.init(this);
         mRichImm = RichInputMethodManager.getInstance();
         AudioAndHapticFeedbackManager.init(this);
@@ -650,6 +684,30 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         super.onCreate();
 
         mHandler.onCreate();
+
+        // XaulinXs Foundry: registra o listener de USER_UNLOCKED
+        // dinamicamente (não via manifest — ver comentário no
+        // AndroidManifest.xml sobre por que USER_UNLOCKED não é confiável
+        // como receiver estático). Quando o usuário desbloqueia o
+        // dispositivo pela primeira vez após um boot em que o teclado
+        // rodou no modo protegido por dispositivo, reforça a migração de
+        // preferências — garante que qualquer alteração feita enquanto
+        // bloqueado não se perca, e que o app volte a usar o storage
+        // normal assim que possível.
+        try {
+            final IntentFilter userUnlockedFilter =
+                    new IntentFilter(Intent.ACTION_USER_UNLOCKED);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(mXaulinXsUserUnlockedReceiver, userUnlockedFilter,
+                        Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(mXaulinXsUserUnlockedReceiver, userUnlockedFilter);
+            }
+        } catch (final Exception e) {
+            // Falha ao registrar não é crítica: a migração já rodou uma
+            // vez no início deste método; na pior hipótese, uma segunda
+            // migração de reforço no desbloqueio não acontece.
+        }
 
         // TODO: Resolve mutual dependencies of {@link #loadSettings()} and
         // {@link #resetDictionaryFacilitatorIfNecessary()}.
@@ -833,6 +891,9 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         // limpeza de rodar.
         try {
             unregisterReceiver(mXaulinXsVoicePermissionReceiver);
+        } catch (final IllegalArgumentException ignored) { }
+        try {
+            unregisterReceiver(mXaulinXsUserUnlockedReceiver);
         } catch (final IllegalArgumentException ignored) { }
         if (mXaulinXsVoiceInputManager != null) {
             mXaulinXsVoiceInputManager.release();

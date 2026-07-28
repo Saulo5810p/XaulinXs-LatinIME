@@ -94,10 +94,20 @@
          android:directBootAware="true">
 
         <!-- Services -->
+        <!-- XaulinXs Foundry: directBootAware="true" é essencial aqui —
+             sem ele, o Android não consegue instanciar este serviço
+             (o teclado em si) durante o Direct Boot, logo após o
+             dispositivo reiniciar e antes do primeiro desbloqueio. Se este
+             for o único método de entrada instalado no aparelho, o
+             usuário ficaria sem teclado nenhum na tela de bloqueio para
+             digitar o PIN/senha/padrão de desbloqueio — o directBootAware
+             no <application> acima NÃO propaga automaticamente para os
+             componentes filhos, precisa ser declarado aqui também. -->
         <service android:name="LatinIME"
              android:label="@string/english_ime_name"
              android:permission="android.permission.BIND_INPUT_METHOD"
              android:exported="true"
+             android:directBootAware="true"
              android:visibleToInstantApps="true">
             <intent-filter>
                 <action android:name="android.view.InputMethod"/>
@@ -248,6 +258,29 @@
              android:exported="true">
             <intent-filter>
                 <action android:name="android.accounts.LOGIN_ACCOUNTS_CHANGED"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- XaulinXs Foundry: parte do suporte a Direct Boot (ver
+             DirectBootHelper.java e o service LatinIME acima para o
+             contexto completo). directBootAware="true" é necessário aqui
+             também — sem ele, este receiver não receberia
+             LOCKED_BOOT_COMPLETED, que só é entregue a componentes
+             marcados como boot-aware. Escuta apenas LOCKED_BOOT_COMPLETED
+             — USER_UNLOCKED NÃO está na lista oficial de exceções de
+             broadcast implícito do Android (ao contrário de
+             LOCKED_BOOT_COMPLETED/BOOT_COMPLETED), então não é confiável
+             como receiver estático em manifest; o registro para
+             USER_UNLOCKED é feito dinamicamente em LatinIME.onCreate()
+             (registerReceiver em runtime, sempre confiável, já que o
+             processo do app já está rodando nesse ponto). exported="false"
+             porque só o próprio sistema deve poder disparar este
+             broadcast para este receiver, nunca outro app. -->
+        <receiver android:name="com.xaulinxs.bootaware.BootAwareReceiver"
+             android:exported="false"
+             android:directBootAware="true">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
 
