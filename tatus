@@ -1,0 +1,21 @@
+* [33m1c6daa0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Add directBootAware to LatinIME service, full Direct Boot handling to prevent lockout
+[31m|[m * [33mcab0dc8[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Update README.md
+[31m|[m * [33m5f4748a[m Add files via upload
+[31m|[m[31m/[m  
+* [33m16e83ee[m Add release signing config, update README with new API range and features
+* [33m3abeab7[m Corrigindo bug bizarro do teclado subir no topo da tela e barra de voz-clipboard sempre visível
+* [33mb5a5b3a[m Close XaulinXs overlays before KeyboardSwitcher state save/restore runs on session restart
+* [33m65a3011[m Corrigindo bug bizarro do teclado subir no topo da tela e barra de voz-clipboard sempre visível
+* [33m536d4d5[m Fix root cause of overlay jumping to top: force WRAP_CONTENT for voice/clipboard overlays instead of inherited MATCH_PARENT
+* [33mda3cefb[m Corrigindo bug bizarro do teclado subir no topo da tela e barra de voz-clipboard sempre visível
+* [33ma819651[m Fix chronic bugs: overlay positioning, key preview colors, suggestion strip visibility/color, emoji panel colors
+* [33me706c8a[m Build x - descrição
+* [33m5da5b3c[m Fix invalid -- sequence in XML comments (XML spec violation)
+* [33mca5056d[m Add voice input, clipboard history, per-key color/transparency fix
+* [33m3903fd5[m Add XaulinXs customization: wallpaper, colors, transparency, size, custom TTF font, minSdk 21
+* [33m5f3fddd[m Add XaulinXs customization: wallpaper, colors, transparency, size, custom TTF font, minSdk 21
+* [33maff949a[m Add XaulinXs customization: wallpaper, colors, transparency, size, custom TTF font, minSdk 21
+* [33mca0e9ad[m LatinIME_Vibes
+* [33m6d261ea[m Add files via upload
+* [33meb8dc59[m Create .gitignore
+* [33me87533d[m Build x - descrição
