@@ -5,4 +5,8 @@ public final class Flags {
     private Flags() {}
 
     public static boolean workspaceItemsLabelHidden() { return false; }
+    public static boolean showHomeBehindDesktop() {
+        return false;
+    }
+
 }

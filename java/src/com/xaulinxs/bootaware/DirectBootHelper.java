@@ -115,6 +115,25 @@ public final class DirectBootHelper {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             return;
         }
+        // XaulinXs Foundry: BUG CRÍTICO CORRIGIDO — esta função era
+        // chamada incondicionalmente em todo onCreate() do teclado, não
+        // só durante o Direct Boot de verdade. moveSharedPreferencesFrom
+        // é uma operação DESTRUTIVA: ela MOVE os dados do storage de
+        // origem (apagando-os de lá), não copia. Como o processo do
+        // teclado pode ser recriado a qualquer momento durante o uso
+        // normal (troca de app, sistema liberando memória), isso migrava
+        // repetidamente as preferências reais (storage protegido por
+        // credencial, onde o usuário estava salvando configurações) para
+        // o storage protegido por dispositivo — e como
+        // resolveBootAwareContext() só troca de storage quando o usuário
+        // está de fato bloqueado, o app continuava lendo do storage
+        // normal (agora vazio) na maior parte do tempo, dando a impressão
+        // de que as configurações "sumiam sozinhas". Migrar SÓ quando o
+        // usuário estiver de fato bloqueado elimina essa migração
+        // espúria durante o uso normal do teclado.
+        if (!isUserLocked(context)) {
+            return;
+        }
         try {
             final Context deviceContext = context.createDeviceProtectedStorageContext();
             if (deviceContext == null) {

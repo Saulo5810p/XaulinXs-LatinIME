@@ -67,7 +67,7 @@ Basta ir até a aba **Actions**, rodar o workflow, e o APK funcional sai pronto.
 <p align="center">
   <img src="assets/design.png" width="280" alt="XaulinXs LatinIME com tema customizado">
   &nbsp;&nbsp;&nbsp;
-  <img src="assets/configs.png" width="280" alt="Tela de personalização do XaulinXs LatinIME">
+  <img src="assets/configs.PNG" width="280" alt="Tela de personalização do XaulinXs LatinIME">
 </p>
 
 <p align="center">
