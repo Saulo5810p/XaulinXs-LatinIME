@@ -74,93 +74,196 @@ public final class CustomizationPrefs {
         // Classe utilitária, não instanciável.
     }
 
+    // XaulinXs Foundry — CORREÇÃO BUG #1 (config "resetando" sozinha) e
+    // BUG #2 (sem teclado na tela de bloqueio):
+    //
+    // Antes desta correção, cada chamador (KeyboardView, SuggestionStripView,
+    // EmojiPalettesView, KeyPreviewView, VoiceInputOverlayView,
+    // ClipboardPanelView) passava seu PRÓPRIO Context (normalmente
+    // getContext() da View) direto para prefs(context), SEM passar pelo
+    // DirectBootHelper. Só o LatinIME.onCreate() resolvia o Context
+    // boot-aware, e esse Context resolvido nunca era propagado para essas
+    // Views — elas continuavam lendo/gravando no Context padrão (storage
+    // protegido por credencial) o tempo todo.
+    //
+    // Consequência prática: durante Direct Boot (antes do 1º desbloqueio),
+    // PreferenceManager.getDefaultSharedPreferences(context) nesse Context
+    // padrão pode devolver um SharedPreferences vazio/inacessível (o
+    // arquivo real está em storage ainda criptografado) — dando a
+    // impressão de "resetou pro padrão". E pior: nada aqui tinha try/catch,
+    // então uma falha ao abrir esse arquivo podia lançar exceção dentro do
+    // onDraw() do teclado, derrubando a inflação da KeyboardView inteira
+    // na tela de bloqueio (bug #2).
+    //
+    // Correção: TODA leitura/escrita agora passa primeiro pelo
+    // DirectBootHelper.resolveBootAwareContext(), que devolve o Context
+    // certo (protegido por dispositivo se bloqueado, padrão se
+    // desbloqueado) — não importa qual Context o chamador passou. Isso
+    // centraliza a decisão aqui, em vez de depender de cada call site picar
+    // o Context certo. Todo getter agora também é blindado com try/catch
+    // amplo (nunca lança), incluindo o próprio acesso ao SharedPreferences.
     private static SharedPreferences prefs(final Context context) {
-        // Reaproveita o SharedPreferences padrão do app (mesmo arquivo que o
-        // restante das preferências do LatinIME), evitando um arquivo
-        // paralelo desnecessário.
-        return PreferenceManager.getDefaultSharedPreferences(context);
+        final Context resolved =
+                com.xaulinxs.bootaware.DirectBootHelper.resolveBootAwareContext(context);
+        return PreferenceManager.getDefaultSharedPreferences(resolved);
     }
 
     // ---- Wallpaper ----
+    // NOTA IMPORTANTE sobre o wallpaper durante Direct Boot: mesmo com o
+    // Context de preferências correto, o wallpaper em si é uma imagem
+    // escolhida pelo usuário via content:// URI (galeria). Esse provedor de
+    // conteúdo pertence a outro app (Fotos, MT Manager, etc.), cujo
+    // processo normalmente NEM SOBE antes do 1º desbloqueio — abrir essa
+    // URI durante Direct Boot falha por natureza, não por bug nosso, e
+    // nenhum Context boot-aware resolve isso. Por isso isWallpaperEnabled()
+    // abaixo retorna false quando o dispositivo está bloqueado: o teclado
+    // deliberadamente ignora o wallpaper (cai no fallback neutro) até o
+    // usuário desbloquear, e KeyboardView já é defensiva o bastante
+    // (IOException/SecurityException) para o caso de a URI falhar mesmo
+    // assim depois disso.
 
     public static boolean isWallpaperEnabled(final Context context) {
-        return prefs(context).getBoolean(KEY_WALLPAPER_ENABLED, false);
+        try {
+            if (com.xaulinxs.bootaware.DirectBootHelper.isUserLocked(context)) {
+                // Ver nota acima: wallpaper de content:// não é viável em
+                // Direct Boot, então desativamos de propósito neste
+                // momento — não é uma falha, é o fallback intencional.
+                return false;
+            }
+            return prefs(context).getBoolean(KEY_WALLPAPER_ENABLED, false);
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to read wallpaper-enabled flag, defaulting to disabled", e);
+            return false;
+        }
     }
 
     public static void setWallpaperEnabled(final Context context, final boolean enabled) {
-        prefs(context).edit().putBoolean(KEY_WALLPAPER_ENABLED, enabled).apply();
+        try {
+            prefs(context).edit().putBoolean(KEY_WALLPAPER_ENABLED, enabled).apply();
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to persist wallpaper-enabled flag", e);
+        }
     }
 
     public static Uri getWallpaperUri(final Context context) {
-        final String uriString = prefs(context).getString(KEY_WALLPAPER_URI, null);
-        if (uriString == null) {
-            return null;
-        }
         try {
+            final String uriString = prefs(context).getString(KEY_WALLPAPER_URI, null);
+            if (uriString == null) {
+                return null;
+            }
             return Uri.parse(uriString);
         } catch (final Exception e) {
-            Log.w(TAG, "Failed to parse stored wallpaper URI", e);
+            Log.w(TAG, "Failed to read/parse stored wallpaper URI", e);
             return null;
         }
     }
 
     public static void setWallpaperUri(final Context context, final Uri uri) {
-        prefs(context).edit()
-                .putString(KEY_WALLPAPER_URI, uri == null ? null : uri.toString())
-                .apply();
+        try {
+            prefs(context).edit()
+                    .putString(KEY_WALLPAPER_URI, uri == null ? null : uri.toString())
+                    .apply();
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to persist wallpaper URI", e);
+        }
     }
 
     // ---- Cor do teclado ----
 
     public static boolean isKeyboardColorEnabled(final Context context) {
-        return prefs(context).getBoolean(KEY_KEYBOARD_COLOR_ENABLED, false);
+        try {
+            return prefs(context).getBoolean(KEY_KEYBOARD_COLOR_ENABLED, false);
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to read keyboard-color-enabled flag, defaulting to disabled", e);
+            return false;
+        }
     }
 
     public static void setKeyboardColorEnabled(final Context context, final boolean enabled) {
-        prefs(context).edit().putBoolean(KEY_KEYBOARD_COLOR_ENABLED, enabled).apply();
+        try {
+            prefs(context).edit().putBoolean(KEY_KEYBOARD_COLOR_ENABLED, enabled).apply();
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to persist keyboard-color-enabled flag", e);
+        }
     }
 
     public static int getKeyboardColor(final Context context) {
-        return prefs(context).getInt(KEY_KEYBOARD_COLOR, DEFAULT_KEYBOARD_COLOR);
+        try {
+            return prefs(context).getInt(KEY_KEYBOARD_COLOR, DEFAULT_KEYBOARD_COLOR);
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to read keyboard color, defaulting", e);
+            return DEFAULT_KEYBOARD_COLOR;
+        }
     }
 
     public static void setKeyboardColor(final Context context, final int color) {
-        prefs(context).edit().putInt(KEY_KEYBOARD_COLOR, color).apply();
+        try {
+            prefs(context).edit().putInt(KEY_KEYBOARD_COLOR, color).apply();
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to persist keyboard color", e);
+        }
     }
 
     // ---- Cor do texto das teclas ----
 
     public static boolean isKeyTextColorEnabled(final Context context) {
-        return prefs(context).getBoolean(KEY_KEY_TEXT_COLOR_ENABLED, false);
+        try {
+            return prefs(context).getBoolean(KEY_KEY_TEXT_COLOR_ENABLED, false);
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to read key-text-color-enabled flag, defaulting to disabled", e);
+            return false;
+        }
     }
 
     public static void setKeyTextColorEnabled(final Context context, final boolean enabled) {
-        prefs(context).edit().putBoolean(KEY_KEY_TEXT_COLOR_ENABLED, enabled).apply();
+        try {
+            prefs(context).edit().putBoolean(KEY_KEY_TEXT_COLOR_ENABLED, enabled).apply();
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to persist key-text-color-enabled flag", e);
+        }
     }
 
     public static int getKeyTextColor(final Context context) {
-        return prefs(context).getInt(KEY_KEY_TEXT_COLOR, DEFAULT_KEY_TEXT_COLOR);
+        try {
+            return prefs(context).getInt(KEY_KEY_TEXT_COLOR, DEFAULT_KEY_TEXT_COLOR);
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to read key text color, defaulting", e);
+            return DEFAULT_KEY_TEXT_COLOR;
+        }
     }
 
     public static void setKeyTextColor(final Context context, final int color) {
-        prefs(context).edit().putInt(KEY_KEY_TEXT_COLOR, color).apply();
+        try {
+            prefs(context).edit().putInt(KEY_KEY_TEXT_COLOR, color).apply();
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to persist key text color", e);
+        }
     }
 
     // ---- Transparência (0-255) ----
 
     public static int getKeyboardAlpha(final Context context) {
-        final int alpha = prefs(context).getInt(KEY_KEYBOARD_ALPHA, DEFAULT_ALPHA);
-        // Defensivo: garante que um valor corrompido não gere um teclado
-        // invisível ou com alpha inválido.
-        if (alpha < 0 || alpha > 255) {
+        try {
+            final int alpha = prefs(context).getInt(KEY_KEYBOARD_ALPHA, DEFAULT_ALPHA);
+            // Defensivo: garante que um valor corrompido não gere um
+            // teclado invisível ou com alpha inválido.
+            if (alpha < 0 || alpha > 255) {
+                return DEFAULT_ALPHA;
+            }
+            return alpha;
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to read keyboard alpha, defaulting", e);
             return DEFAULT_ALPHA;
         }
-        return alpha;
     }
 
     public static void setKeyboardAlpha(final Context context, final int alpha) {
-        final int clamped = Math.max(0, Math.min(255, alpha));
-        prefs(context).edit().putInt(KEY_KEYBOARD_ALPHA, clamped).apply();
+        try {
+            final int clamped = Math.max(0, Math.min(255, alpha));
+            prefs(context).edit().putInt(KEY_KEYBOARD_ALPHA, clamped).apply();
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to persist keyboard alpha", e);
+        }
     }
 
     // ---- Tamanho (escala da altura do teclado) ----
@@ -168,31 +271,55 @@ public final class CustomizationPrefs {
     // PREF_RESIZE_KEYBOARD/PREF_KEYBOARD_HEIGHT_SCALE acima).
 
     public static float getKeyboardScale(final Context context) {
-        final float scale = prefs(context).getFloat(PREF_KEYBOARD_HEIGHT_SCALE, DEFAULT_SCALE);
-        // Mesmo range de segurança usado pelo prefs_screen_debug.xml
-        // original ([.5, 1.2]); fora disso, algo está corrompido.
-        if (scale < 0.5f || scale > 1.2f) {
+        try {
+            final float scale = prefs(context).getFloat(PREF_KEYBOARD_HEIGHT_SCALE, DEFAULT_SCALE);
+            // Mesmo range de segurança usado pelo prefs_screen_debug.xml
+            // original ([.5, 1.2]); fora disso, algo está corrompido.
+            if (scale < 0.5f || scale > 1.2f) {
+                return DEFAULT_SCALE;
+            }
+            return scale;
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to read keyboard scale, defaulting", e);
             return DEFAULT_SCALE;
         }
-        return scale;
     }
 
     public static void setKeyboardScale(final Context context, final float scale) {
-        final float clamped = Math.max(0.5f, Math.min(1.2f, scale));
-        prefs(context).edit()
-                .putBoolean(PREF_RESIZE_KEYBOARD, clamped != DEFAULT_SCALE)
-                .putFloat(PREF_KEYBOARD_HEIGHT_SCALE, clamped)
-                .apply();
+        try {
+            final float clamped = Math.max(0.5f, Math.min(1.2f, scale));
+            prefs(context).edit()
+                    .putBoolean(PREF_RESIZE_KEYBOARD, clamped != DEFAULT_SCALE)
+                    .putFloat(PREF_KEYBOARD_HEIGHT_SCALE, clamped)
+                    .apply();
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to persist keyboard scale", e);
+        }
     }
 
     // ---- Fonte customizada (TTF) ----
+    // NOTA: assim como o wallpaper, a fonte é copiada para
+    // filesDir/xaulinxs_fonts/ (armazenamento interno do PRÓPRIO app, não
+    // content:// externo — ver FontFileManagerActivity), então ela É
+    // tecnicamente legível em Direct Boot desde que o Context resolvido
+    // aponte pro storage certo. Mantemos habilitada; loadCustomTypeface()
+    // já é totalmente defensiva quanto a arquivo ausente/corrompido.
 
     public static String getCustomFontPath(final Context context) {
-        return prefs(context).getString(KEY_CUSTOM_FONT_PATH, null);
+        try {
+            return prefs(context).getString(KEY_CUSTOM_FONT_PATH, null);
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to read custom font path, defaulting to none", e);
+            return null;
+        }
     }
 
     public static synchronized void setCustomFontPath(final Context context, final String path) {
-        prefs(context).edit().putString(KEY_CUSTOM_FONT_PATH, path).apply();
+        try {
+            prefs(context).edit().putString(KEY_CUSTOM_FONT_PATH, path).apply();
+        } catch (final Exception e) {
+            Log.w(TAG, "Failed to persist custom font path", e);
+        }
         // Invalida o cache em memória para que a próxima chamada a
         // loadCustomTypeface() releia o novo arquivo do disco.
         sCachedTypeface = null;
