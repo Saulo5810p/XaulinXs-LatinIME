@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2012 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     xmlns:tools="http://schemas.android.com/tools"
+     coreApp="true"
+     package="com.android.inputmethod.latin"
+     android:versionCode="30">
+
+    <!-- <uses-sdk> removida: a partir do AGP 9.0.0, minSdk/targetSdk não podem
+         mais ser controlados pelo manifest, apenas pelo build.gradle
+         (defaultConfig.minSdkVersion / targetSdkVersion), que já define
+         minSdk 28 / targetSdk 34. -->
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION"/>
+    <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <uses-permission android:name="android.permission.READ_PROFILE"/>
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
+    <uses-permission android:name="android.permission.READ_SYNC_STATS"/>
+    <uses-permission android:name="android.permission.READ_USER_DICTIONARY"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- XaulinXs Foundry: microfone para digitação por voz via
+         SpeechRecognizer nativo (interface própria, sem depender de outro
+         app instalado como shortcut IME). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
+    <!-- XaulinXs Foundry: acesso a todos os arquivos, necessário para o
+         file manager próprio navegar livremente o armazenamento do
+         dispositivo e importar fontes TTF/OTF de qualquer pasta.
+
+         - MANAGE_EXTERNAL_STORAGE: Android 11+ (API 30+), concedida via
+           tela especial do sistema (ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+           não pelo diálogo padrão de runtime permission.
+         - READ/WRITE_EXTERNAL_STORAGE com maxSdkVersion="29": cobre minSdk 21
+           até Android 10 (API 29), onde a permissão legada ainda funciona
+           via diálogo de runtime permission padrão (API 23+) ou é concedida
+           na instalação (API 21-22). -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+         tools:ignore="ScopedStorage"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+         android:maxSdkVersion="29"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+         android:maxSdkVersion="29"/>
+    <uses-permission android:name="android.permission.USE_CREDENTIALS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS"/>
+    <uses-permission android:name="android.permission.WRITE_USER_DICTIONARY"/>
+
+    <!-- A signature-protected permission to ask AOSP Keyboard to close the software keyboard.
+                 To use this, add the following line into calling application's AndroidManifest.xml
+         <pre>
+                      {@code
+         <uses-permission android:name="com.android.inputmethod.latin.HIDE_SOFT_INPUT"/>
+                      }
+         </pre>
+                      then call {@link android.content.Context#sendBroadcast(Intent)} as follows:
+         <pre>
+                      {@code
+                      sendBroadcast(new Intent("com.android.inputmethod.latin.HIDE_SOFT_INPUT")
+                              .setPackage("com.android.inputmethod.latin"));
+                      }
+         </pre> -->
+    <permission android:name="com.android.inputmethod.latin.HIDE_SOFT_INPUT"
+         android:protectionLevel="signature"/>
+
+    <!-- To query enabled input methods. -->
+    <queries>
+        <intent>
+            <action android:name="android.view.InputMethod" />
+        </intent>
+    </queries>
+
+    <application android:label="@string/english_ime_name"
+         android:icon="@drawable/ic_launcher_keyboard"
+         android:supportsRtl="true"
+         android:allowBackup="true"
+         android:defaultToDeviceProtectedStorage="true"
+         android:directBootAware="true">
+
+        <!-- Services -->
+        <!-- XaulinXs Foundry: directBootAware="true" é essencial aqui —
+             sem ele, o Android não consegue instanciar este serviço
+             (o teclado em si) durante o Direct Boot, logo após o
+             dispositivo reiniciar e antes do primeiro desbloqueio. Se este
+             for o único método de entrada instalado no aparelho, o
+             usuário ficaria sem teclado nenhum na tela de bloqueio para
+             digitar o PIN/senha/padrão de desbloqueio — o directBootAware
+             no <application> acima NÃO propaga automaticamente para os
+             componentes filhos, precisa ser declarado aqui também. -->
+        <service android:name="LatinIME"
+             android:label="@string/english_ime_name"
+             android:permission="android.permission.BIND_INPUT_METHOD"
+             android:exported="true"
+             android:directBootAware="true"
+             android:visibleToInstantApps="true">
+            <intent-filter>
+                <action android:name="android.view.InputMethod"/>
+            </intent-filter>
+            <meta-data android:name="android.view.im"
+                 android:resource="@xml/method"/>
+        </service>
+
+        <service android:name=".spellcheck.AndroidSpellCheckerService"
+             android:label="@string/spell_checker_service_name"
+             android:permission="android.permission.BIND_TEXT_SERVICE"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.textservice.SpellCheckerService"/>
+            </intent-filter>
+            <meta-data android:name="android.view.textservice.scs"
+                 android:resource="@xml/spellchecker"/>
+        </service>
+
+        <service android:name="com.android.inputmethod.dictionarypack.DictionaryService"
+             android:label="@string/dictionary_service_name">
+        </service>
+
+        <!-- Activities -->
+        <activity android:name=".setup.SetupActivity"
+             android:theme="@style/platformActivityTheme"
+             android:label="@string/english_ime_name"
+             android:icon="@drawable/ic_launcher_keyboard"
+             android:launchMode="singleTask"
+             android:noHistory="true"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".permissions.PermissionsActivity"
+             android:theme="@android:style/Theme.Translucent.NoTitleBar"
+             android:exported="false"
+             android:taskAffinity="">
+        </activity>
+
+        <activity android:name=".setup.SetupWizardActivity"
+             android:theme="@style/platformActivityTheme"
+             android:label="@string/english_ime_name"
+             android:clearTaskOnLaunch="true"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".settings.SettingsActivity"
+             android:theme="@style/platformSettingsTheme"
+             android:label="@string/english_ime_settings"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
+
+        <!-- XaulinXs Foundry: telas de customização visual do teclado.
+             Não exportadas: são acessadas apenas a partir da tela de
+             configurações do próprio app (screen_appearance), não por
+             outros apps externos. -->
+        <activity android:name="com.xaulinxs.customization.CustomizationSettingsActivity"
+             android:theme="@style/platformSettingsTheme"
+             android:label="@string/xaulinxs_customization_title"
+             android:exported="false"/>
+        <activity android:name="com.xaulinxs.customization.FontFileManagerActivity"
+             android:theme="@style/platformSettingsTheme"
+             android:label="@string/xaulinxs_filemanager_title"
+             android:exported="false"/>
+        <activity android:name="com.xaulinxs.customization.KeyboardPositionActivity"
+             android:theme="@style/platformSettingsTheme"
+             android:label="@string/xaulinxs_position_title"
+             android:exported="false"/>
+        <!-- XaulinXs Foundry: Activity invisível usada apenas para
+             solicitar a permissão de microfone em nome do serviço de
+             teclado (InputMethodService não pode chamar requestPermissions
+             diretamente). android:theme translúcido evita qualquer flash
+             de tela em branco. -->
+        <activity android:name="com.xaulinxs.voice.VoicePermissionActivity"
+             android:theme="@android:style/Theme.Translucent.NoTitleBar"
+             android:excludeFromRecents="true"
+             android:taskAffinity=""
+             android:exported="false"/>
+
+        <activity android:name=".spellcheck.SpellCheckerSettingsActivity"
+             android:theme="@style/platformSettingsTheme"
+             android:label="@string/android_spell_checker_settings"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name="com.android.inputmethod.dictionarypack.DictionarySettingsActivity"
+             android:theme="@style/platformSettingsTheme"
+             android:label="@string/dictionary_settings_title"
+             android:uiOptions="splitActionBarWhenNarrow"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name="com.android.inputmethod.dictionarypack.DownloadOverMeteredDialog"
+             android:theme="@style/platformActivityTheme"
+             android:label="@string/dictionary_install_over_metered_network_prompt"
+             android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Unexported activity used for tests. -->
+        <activity android:name=".settings.TestFragmentActivity"
+             android:exported="false"/>
+
+        <!-- Broadcast receivers -->
+        <receiver android:name="SystemBroadcastReceiver"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.USER_INITIALIZE"/>
+                <action android:name="android.intent.action.LOCALE_CHANGED"/>
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name="DictionaryPackInstallBroadcastReceiver"
+             android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.inputmethod.dictionarypack.aosp.UNKNOWN_CLIENT"/>
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name="com.android.inputmethod.dictionarypack.EventHandler"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE"/>
+                <action android:name="android.intent.action.DATE_CHANGED"/>
+                <action android:name="com.android.inputmethod.dictionarypack.aosp.UPDATE_NOW"/>
+                <action android:name="com.android.inputmethod.dictionarypack.aosp.INIT_AND_UPDATE_NOW"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- Broadcast receiver for AccountManager#LOGIN_ACCOUNTS_CHANGED_ACTION. -->
+        <receiver android:name=".accounts.AccountsChangedReceiver"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.accounts.LOGIN_ACCOUNTS_CHANGED"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- XaulinXs Foundry: parte do suporte a Direct Boot (ver
+             DirectBootHelper.java e o service LatinIME acima para o
+             contexto completo). directBootAware="true" é necessário aqui
+             também — sem ele, este receiver não receberia
+             LOCKED_BOOT_COMPLETED, que só é entregue a componentes
+             marcados como boot-aware. Escuta apenas LOCKED_BOOT_COMPLETED
+             — USER_UNLOCKED NÃO está na lista oficial de exceções de
+             broadcast implícito do Android (ao contrário de
+             LOCKED_BOOT_COMPLETED/BOOT_COMPLETED), então não é confiável
+             como receiver estático em manifest; o registro para
+             USER_UNLOCKED é feito dinamicamente em LatinIME.onCreate()
+             (registerReceiver em runtime, sempre confiável, já que o
+             processo do app já está rodando nesse ponto). exported="false"
+             porque só o próprio sistema deve poder disparar este
+             broadcast para este receiver, nunca outro app. -->
+        <receiver android:name="com.xaulinxs.bootaware.BootAwareReceiver"
+             android:exported="false"
+             android:directBootAware="true">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- Content providers -->
+        <provider android:name="com.android.inputmethod.dictionarypack.DictionaryProvider"
+             android:grantUriPermissions="true"
+             android:exported="false"
+             android:authorities="@string/authority"
+             android:multiprocess="false"
+             android:label="@string/dictionary_provider_name">
+        </provider>
+    </application>
+</manifest>

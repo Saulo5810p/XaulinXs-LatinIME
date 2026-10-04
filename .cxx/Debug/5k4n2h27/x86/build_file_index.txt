@@ -1,0 +1,1 @@
+/data/data/com.termux/files/home/XaulinXs-LatinIME-main/native/jni/CMakeLists.txt

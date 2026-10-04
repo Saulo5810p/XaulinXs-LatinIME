@@ -1,0 +1,5 @@
+// XaulinXs Foundry: fixa a raiz do build neste diretorio.
+// Sem este arquivo o Gradle sobe a arvore de pastas e pode usar um
+// settings.gradle de outro lugar (ex: a home do Termux). No GitHub Actions
+// nao havia nenhum acima do checkout, por isso funcionava sem ele.
+rootProject.name = 'XaulinXs-LatinIME'

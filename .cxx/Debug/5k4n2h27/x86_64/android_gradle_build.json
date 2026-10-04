@@ -1,0 +1,38 @@
+{
+  "buildFiles": [
+    "/data/data/com.termux/files/home/XaulinXs-LatinIME-main/native/jni/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/data/data/com.termux/files/home/android-sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/data/data/com.termux/files/home/XaulinXs-LatinIME-main/.cxx/Debug/5k4n2h27/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/data/data/com.termux/files/home/android-sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/data/data/com.termux/files/home/XaulinXs-LatinIME-main/.cxx/Debug/5k4n2h27/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "jni_latinime::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "x86_64",
+      "artifactName": "jni_latinime",
+      "output": "/data/data/com.termux/files/home/XaulinXs-LatinIME-main/build/intermediates/cxx/Debug/5k4n2h27/obj/x86_64/libjni_latinime.so",
+      "runtimeFiles": []
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-aarch64/bin/clang.lld",
+      "cppCompilerExecutable": "/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-aarch64/bin/clang++.lld"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

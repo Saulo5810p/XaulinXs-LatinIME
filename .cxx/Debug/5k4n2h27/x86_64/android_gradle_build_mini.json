@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "/data/data/com.termux/files/home/XaulinXs-LatinIME-main/native/jni/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/data/data/com.termux/files/home/android-sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/data/data/com.termux/files/home/XaulinXs-LatinIME-main/.cxx/Debug/5k4n2h27/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/data/data/com.termux/files/home/android-sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/data/data/com.termux/files/home/XaulinXs-LatinIME-main/.cxx/Debug/5k4n2h27/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "jni_latinime::@6890427a1f51a3e7e1df": {
+      "artifactName": "jni_latinime",
+      "abi": "x86_64",
+      "output": "/data/data/com.termux/files/home/XaulinXs-LatinIME-main/build/intermediates/cxx/Debug/5k4n2h27/obj/x86_64/libjni_latinime.so",
+      "runtimeFiles": []
+    }
+  }
+}

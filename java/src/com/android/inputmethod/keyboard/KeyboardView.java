@@ -1,0 +1,794 @@
+/*
+ * Copyright (C) 2010 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.android.inputmethod.keyboard;
+
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Paint.Align;
+import android.graphics.PorterDuff;
+import android.graphics.Rect;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.NinePatchDrawable;
+import android.text.TextUtils;
+import android.util.AttributeSet;
+import android.view.View;
+
+import com.android.inputmethod.keyboard.internal.KeyDrawParams;
+import com.android.inputmethod.keyboard.internal.KeyVisualAttributes;
+import com.android.inputmethod.latin.R;
+import com.android.inputmethod.latin.common.Constants;
+import com.android.inputmethod.latin.utils.TypefaceUtils;
+import com.xaulinxs.customization.CustomizationPrefs;
+import com.xaulinxs.customization.KeyboardTransparency;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashSet;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+/**
+ * A view that renders a virtual {@link Keyboard}.
+ *
+ * @attr ref R.styleable#KeyboardView_keyBackground
+ * @attr ref R.styleable#KeyboardView_functionalKeyBackground
+ * @attr ref R.styleable#KeyboardView_spacebarBackground
+ * @attr ref R.styleable#KeyboardView_spacebarIconWidthRatio
+ * @attr ref R.styleable#Keyboard_Key_keyLabelFlags
+ * @attr ref R.styleable#KeyboardView_keyHintLetterPadding
+ * @attr ref R.styleable#KeyboardView_keyPopupHintLetter
+ * @attr ref R.styleable#KeyboardView_keyPopupHintLetterPadding
+ * @attr ref R.styleable#KeyboardView_keyShiftedLetterHintPadding
+ * @attr ref R.styleable#KeyboardView_keyTextShadowRadius
+ * @attr ref R.styleable#KeyboardView_verticalCorrection
+ * @attr ref R.styleable#Keyboard_Key_keyTypeface
+ * @attr ref R.styleable#Keyboard_Key_keyLetterSize
+ * @attr ref R.styleable#Keyboard_Key_keyLabelSize
+ * @attr ref R.styleable#Keyboard_Key_keyLargeLetterRatio
+ * @attr ref R.styleable#Keyboard_Key_keyLargeLabelRatio
+ * @attr ref R.styleable#Keyboard_Key_keyHintLetterRatio
+ * @attr ref R.styleable#Keyboard_Key_keyShiftedLetterHintRatio
+ * @attr ref R.styleable#Keyboard_Key_keyHintLabelRatio
+ * @attr ref R.styleable#Keyboard_Key_keyLabelOffCenterRatio
+ * @attr ref R.styleable#Keyboard_Key_keyHintLabelOffCenterRatio
+ * @attr ref R.styleable#Keyboard_Key_keyPreviewTextRatio
+ * @attr ref R.styleable#Keyboard_Key_keyTextColor
+ * @attr ref R.styleable#Keyboard_Key_keyTextColorDisabled
+ * @attr ref R.styleable#Keyboard_Key_keyTextShadowColor
+ * @attr ref R.styleable#Keyboard_Key_keyHintLetterColor
+ * @attr ref R.styleable#Keyboard_Key_keyHintLabelColor
+ * @attr ref R.styleable#Keyboard_Key_keyShiftedLetterHintInactivatedColor
+ * @attr ref R.styleable#Keyboard_Key_keyShiftedLetterHintActivatedColor
+ * @attr ref R.styleable#Keyboard_Key_keyPreviewTextColor
+ */
+public class KeyboardView extends View {
+    // XML attributes
+    private final KeyVisualAttributes mKeyVisualAttributes;
+    // Default keyLabelFlags from {@link KeyboardTheme}.
+    // Currently only "alignHintLabelToBottom" is supported.
+    private final int mDefaultKeyLabelFlags;
+    private final float mKeyHintLetterPadding;
+    private final String mKeyPopupHintLetter;
+    private final float mKeyPopupHintLetterPadding;
+    private final float mKeyShiftedLetterHintPadding;
+    private final float mKeyTextShadowRadius;
+    private final float mVerticalCorrection;
+    private final Drawable mKeyBackground;
+    private final Drawable mFunctionalKeyBackground;
+    private final Drawable mSpacebarBackground;
+    private final float mSpacebarIconWidthRatio;
+    private final Rect mKeyBackgroundPadding = new Rect();
+    private static final float KET_TEXT_SHADOW_RADIUS_DISABLED = -1.0f;
+
+    // The maximum key label width in the proportion to the key width.
+    private static final float MAX_LABEL_RATIO = 0.90f;
+
+    // Main keyboard
+    // TODO: Consider having a base keyboard object to make this @Nonnull
+    @Nullable
+    private Keyboard mKeyboard;
+    @Nonnull
+    private final KeyDrawParams mKeyDrawParams = new KeyDrawParams();
+
+    // Drawing
+    /** True if all keys should be drawn */
+    private boolean mInvalidateAllKeys;
+    /** The keys that should be drawn */
+    private final HashSet<Key> mInvalidatedKeys = new HashSet<>();
+    /** The working rectangle for clipping */
+    private final Rect mClipRect = new Rect();
+    /** The keyboard bitmap buffer for faster updates */
+    private Bitmap mOffscreenBuffer;
+    /** The canvas for the above mutable keyboard bitmap */
+    @Nonnull
+    private final Canvas mOffscreenCanvas = new Canvas();
+    @Nonnull
+    private final Paint mPaint = new Paint();
+    private final Paint.FontMetrics mFontMetrics = new Paint.FontMetrics();
+
+    // ---- XaulinXs Foundry: customização visual (wallpaper/cor/transparência) ----
+    // Bitmap do wallpaper do teclado já decodificado e escalado, cacheado
+    // para não recarregar do disco a cada onDraw. Null se não houver
+    // wallpaper configurado ou se a decodificação falhar (nunca lança).
+    @Nullable
+    private Bitmap mXaulinXsWallpaperBitmap;
+    // Guarda a URI que gerou o bitmap acima, para saber quando precisa
+    // recarregar (evita redecodificar a mesma imagem em todo frame).
+    @Nullable
+    private String mXaulinXsWallpaperUriString;
+    private int mXaulinXsWallpaperTargetWidth = -1;
+    private int mXaulinXsWallpaperTargetHeight = -1;
+    // Ultimo Drawable de fundo e alpha aplicados por draw() (ver la).
+    @Nullable
+    private Drawable mXaulinXsLastThemeBackground;
+    private int mXaulinXsLastThemeBackgroundAlpha = -1;
+    private final Paint mXaulinXsWallpaperPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+
+    public KeyboardView(final Context context, final AttributeSet attrs) {
+        this(context, attrs, R.attr.keyboardViewStyle);
+    }
+
+    public KeyboardView(final Context context, final AttributeSet attrs, final int defStyle) {
+        super(context, attrs, defStyle);
+
+        final TypedArray keyboardViewAttr = context.obtainStyledAttributes(attrs,
+                R.styleable.KeyboardView, defStyle, R.style.KeyboardView);
+        mKeyBackground = keyboardViewAttr.getDrawable(R.styleable.KeyboardView_keyBackground);
+        mKeyBackground.getPadding(mKeyBackgroundPadding);
+        final Drawable functionalKeyBackground = keyboardViewAttr.getDrawable(
+                R.styleable.KeyboardView_functionalKeyBackground);
+        mFunctionalKeyBackground = (functionalKeyBackground != null) ? functionalKeyBackground
+                : mKeyBackground;
+        final Drawable spacebarBackground = keyboardViewAttr.getDrawable(
+                R.styleable.KeyboardView_spacebarBackground);
+        mSpacebarBackground = (spacebarBackground != null) ? spacebarBackground : mKeyBackground;
+        mSpacebarIconWidthRatio = keyboardViewAttr.getFloat(
+                R.styleable.KeyboardView_spacebarIconWidthRatio, 1.0f);
+        mKeyHintLetterPadding = keyboardViewAttr.getDimension(
+                R.styleable.KeyboardView_keyHintLetterPadding, 0.0f);
+        mKeyPopupHintLetter = keyboardViewAttr.getString(
+                R.styleable.KeyboardView_keyPopupHintLetter);
+        mKeyPopupHintLetterPadding = keyboardViewAttr.getDimension(
+                R.styleable.KeyboardView_keyPopupHintLetterPadding, 0.0f);
+        mKeyShiftedLetterHintPadding = keyboardViewAttr.getDimension(
+                R.styleable.KeyboardView_keyShiftedLetterHintPadding, 0.0f);
+        mKeyTextShadowRadius = keyboardViewAttr.getFloat(
+                R.styleable.KeyboardView_keyTextShadowRadius, KET_TEXT_SHADOW_RADIUS_DISABLED);
+        mVerticalCorrection = keyboardViewAttr.getDimension(
+                R.styleable.KeyboardView_verticalCorrection, 0.0f);
+        keyboardViewAttr.recycle();
+
+        final TypedArray keyAttr = context.obtainStyledAttributes(attrs,
+                R.styleable.Keyboard_Key, defStyle, R.style.KeyboardView);
+        mDefaultKeyLabelFlags = keyAttr.getInt(R.styleable.Keyboard_Key_keyLabelFlags, 0);
+        mKeyVisualAttributes = KeyVisualAttributes.newInstance(keyAttr);
+        keyAttr.recycle();
+
+        mPaint.setAntiAlias(true);
+    }
+
+    @Nullable
+    public KeyVisualAttributes getKeyVisualAttribute() {
+        return mKeyVisualAttributes;
+    }
+
+    private static void blendAlpha(@Nonnull final Paint paint, final int alpha) {
+        final int color = paint.getColor();
+        paint.setARGB((paint.getAlpha() * alpha) / Constants.Color.ALPHA_OPAQUE,
+                Color.red(color), Color.green(color), Color.blue(color));
+    }
+
+    public void setHardwareAcceleratedDrawingEnabled(final boolean enabled) {
+        if (!enabled) return;
+        // TODO: Should use LAYER_TYPE_SOFTWARE when hardware acceleration is off?
+        setLayerType(LAYER_TYPE_HARDWARE, null);
+    }
+
+    /**
+     * Attaches a keyboard to this view. The keyboard can be switched at any time and the
+     * view will re-layout itself to accommodate the keyboard.
+     * @see Keyboard
+     * @see #getKeyboard()
+     * @param keyboard the keyboard to display in this view
+     */
+    public void setKeyboard(@Nonnull final Keyboard keyboard) {
+        mKeyboard = keyboard;
+        final int keyHeight = keyboard.mMostCommonKeyHeight - keyboard.mVerticalGap;
+        mKeyDrawParams.updateParams(keyHeight, mKeyVisualAttributes);
+        mKeyDrawParams.updateParams(keyHeight, keyboard.mKeyVisualAttributes);
+        invalidateAllKeys();
+        requestLayout();
+    }
+
+    /**
+     * Returns the current keyboard being displayed by this view.
+     * @return the currently attached keyboard
+     * @see #setKeyboard(Keyboard)
+     */
+    @Nullable
+    public Keyboard getKeyboard() {
+        return mKeyboard;
+    }
+
+    protected float getVerticalCorrection() {
+        return mVerticalCorrection;
+    }
+
+    @Nonnull
+    protected KeyDrawParams getKeyDrawParams() {
+        return mKeyDrawParams;
+    }
+
+    protected void updateKeyDrawParams(final int keyHeight) {
+        mKeyDrawParams.updateParams(keyHeight, mKeyVisualAttributes);
+    }
+
+    @Override
+    protected void onMeasure(final int widthMeasureSpec, final int heightMeasureSpec) {
+        final Keyboard keyboard = getKeyboard();
+        if (keyboard == null) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            return;
+        }
+        // The main keyboard expands to the entire this {@link KeyboardView}.
+        final int width = keyboard.mOccupiedWidth + getPaddingLeft() + getPaddingRight();
+        final int height = keyboard.mOccupiedHeight + getPaddingTop() + getPaddingBottom();
+        setMeasuredDimension(width, height);
+    }
+
+    @Override
+    protected void onDraw(final Canvas canvas) {
+        super.onDraw(canvas);
+        if (canvas.isHardwareAccelerated()) {
+            onDrawKeyboard(canvas);
+            return;
+        }
+
+        final boolean bufferNeedsUpdates = mInvalidateAllKeys || !mInvalidatedKeys.isEmpty();
+        if (bufferNeedsUpdates || mOffscreenBuffer == null) {
+            if (maybeAllocateOffscreenBuffer()) {
+                mInvalidateAllKeys = true;
+                // TODO: Stop using the offscreen canvas even when in software rendering
+                mOffscreenCanvas.setBitmap(mOffscreenBuffer);
+            }
+            onDrawKeyboard(mOffscreenCanvas);
+        }
+        canvas.drawBitmap(mOffscreenBuffer, 0.0f, 0.0f, null);
+    }
+
+    private boolean maybeAllocateOffscreenBuffer() {
+        final int width = getWidth();
+        final int height = getHeight();
+        if (width == 0 || height == 0) {
+            return false;
+        }
+        if (mOffscreenBuffer != null && mOffscreenBuffer.getWidth() == width
+                && mOffscreenBuffer.getHeight() == height) {
+            return false;
+        }
+        freeOffscreenBuffer();
+        mOffscreenBuffer = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        return true;
+    }
+
+    private void freeOffscreenBuffer() {
+        mOffscreenCanvas.setBitmap(null);
+        mOffscreenCanvas.setMatrix(null);
+        if (mOffscreenBuffer != null) {
+            mOffscreenBuffer.recycle();
+            mOffscreenBuffer = null;
+        }
+    }
+
+    // ---- XaulinXs Foundry: customização visual ----
+
+    // XaulinXs Foundry: TRANSPARENCIA INDEPENDENTE DE WALLPAPER/COR. O fundo
+    // nativo do tema (9-patch opaco) e desenhado por View.draw() ANTES do
+    // onDraw(), por isso o alpha e ajustado aqui, antes do super.draw().
+    // So mexe no Drawable quando o alpha ou o Drawable mudam (setAlpha de
+    // 9-patch sempre invalida a view; sem esse cache redesenharia sem parar).
+    @Override
+    public void draw(final Canvas canvas) {
+        final int themeAlpha = computeXaulinXsThemeBackgroundAlpha();
+        if (getBackground() != mXaulinXsLastThemeBackground
+                || themeAlpha != mXaulinXsLastThemeBackgroundAlpha) {
+            KeyboardTransparency.applyAlphaToBackground(this, themeAlpha);
+            mXaulinXsLastThemeBackground = getBackground();
+            mXaulinXsLastThemeBackgroundAlpha = themeAlpha;
+        }
+        super.draw(canvas);
+    }
+
+    private int computeXaulinXsThemeBackgroundAlpha() {
+        final Context context = getContext();
+        if (mXaulinXsWallpaperBitmap != null && CustomizationPrefs.isWallpaperEnabled(context)) {
+            return 0;
+        }
+        return KeyboardTransparency.getThemeBackgroundAlpha(context);
+    }
+
+    /**
+     * Garante que {@link #mXaulinXsWallpaperBitmap} reflita a URI e as
+     * dimensões atuais do teclado, recarregando do disco apenas quando
+     * necessário. Nunca lança exceção: qualquer falha (arquivo apagado,
+     * permissão revogada, imagem corrompida) resulta em wallpaper
+     * desativado silenciosamente para este frame, e o teclado volta a
+     * desenhar o fundo normal.
+     */
+    /**
+     * Desenha, nesta ordem, a cor de fundo customizada (se ativa) e o
+     * wallpaper customizado (se ativo) por cima do background padrão do
+     * tema. A transparência global configurada pelo usuário é aplicada à
+     * cor de fundo customizada (o wallpaper, por natureza de imagem, não
+     * usa esse alpha — ele tem opacidade própria da foto escolhida).
+     *
+     * Totalmente opcional e aditivo: se o usuário não ativou nenhuma
+     * customização, este método não desenha nada e o visual do tema
+     * original do AOSP permanece inalterado.
+     */
+    private void drawXaulinXsCustomBackground(@Nonnull final Canvas canvas) {
+        final Context context = getContext();
+        final int alpha = CustomizationPrefs.getKeyboardAlpha(context);
+        // XaulinXs Foundry: TRANSPARENCIA TOTAL - o wallpaper tambem respeita
+        // o alpha. Com wallpaper ativo ele SUBSTITUI a camada de cor (antes
+        // ela ficava escondida por baixo do wallpaper opaco), assim so ha uma
+        // camada com o alpha do slider e o app atras aparece de verdade.
+        final boolean wallpaperOn = CustomizationPrefs.isWallpaperEnabled(context);
+        if (wallpaperOn) {
+            updateXaulinXsWallpaperIfNeeded(getWidth(), getHeight());
+        }
+        final boolean drawWallpaper = wallpaperOn && mXaulinXsWallpaperBitmap != null;
+        if (drawWallpaper) {
+            mXaulinXsWallpaperPaint.setAlpha(alpha);
+            canvas.drawBitmap(mXaulinXsWallpaperBitmap, 0f, 0f, mXaulinXsWallpaperPaint);
+        } else if (CustomizationPrefs.isKeyboardColorEnabled(context)) {
+            final int color = CustomizationPrefs.getKeyboardColor(context);
+            final Paint bgPaint = mPaint;
+            bgPaint.reset();
+            bgPaint.setColor(color);
+            bgPaint.setAlpha(alpha);
+            canvas.drawRect(0, 0, getWidth(), getHeight(), bgPaint);
+        }
+        // O fundo nativo do tema (ajustado em draw()) ainda pode estar com o
+        // alpha antigo neste frame; pede mais um frame para zera-lo.
+        if (drawWallpaper && mXaulinXsLastThemeBackgroundAlpha != 0) {
+            invalidate();
+        }
+    }
+
+    private void updateXaulinXsWallpaperIfNeeded(final int width, final int height) {
+        if (!CustomizationPrefs.isWallpaperEnabled(getContext())) {
+            if (mXaulinXsWallpaperBitmap != null) {
+                mXaulinXsWallpaperBitmap = null;
+                mXaulinXsWallpaperUriString = null;
+            }
+            return;
+        }
+        final android.net.Uri uri = CustomizationPrefs.getWallpaperUri(getContext());
+        if (uri == null) {
+            mXaulinXsWallpaperBitmap = null;
+            mXaulinXsWallpaperUriString = null;
+            return;
+        }
+        final String uriString = uri.toString();
+        final boolean sameImage = uriString.equals(mXaulinXsWallpaperUriString);
+        final boolean sameSize = width == mXaulinXsWallpaperTargetWidth
+                && height == mXaulinXsWallpaperTargetHeight;
+        if (sameImage && sameSize && mXaulinXsWallpaperBitmap != null) {
+            return;
+        }
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+        try (InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                mXaulinXsWallpaperBitmap = null;
+                return;
+            }
+            final Bitmap original = android.graphics.BitmapFactory.decodeStream(in);
+            if (original == null) {
+                mXaulinXsWallpaperBitmap = null;
+                return;
+            }
+            mXaulinXsWallpaperBitmap = Bitmap.createScaledBitmap(
+                    original, width, height, true /* filter */);
+            if (mXaulinXsWallpaperBitmap != original) {
+                original.recycle();
+            }
+            mXaulinXsWallpaperUriString = uriString;
+            mXaulinXsWallpaperTargetWidth = width;
+            mXaulinXsWallpaperTargetHeight = height;
+        } catch (final IOException | OutOfMemoryError | SecurityException e) {
+            // Arquivo apagado, permissão de URI revogada (comum após
+            // reinício do sistema para URIs de content:// sem persistência
+            // explícita), ou imagem grande demais para a memória
+            // disponível. Em qualquer caso, apenas não desenha wallpaper
+            // neste frame — nunca derruba o teclado.
+            mXaulinXsWallpaperBitmap = null;
+            mXaulinXsWallpaperUriString = null;
+        }
+    }
+
+    private void onDrawKeyboard(@Nonnull final Canvas canvas) {
+        final Keyboard keyboard = getKeyboard();
+        if (keyboard == null) {
+            return;
+        }
+
+        final Paint paint = mPaint;
+        final Drawable background = getBackground();
+        // Calculate clip region and set.
+        final boolean drawAllKeys = mInvalidateAllKeys || mInvalidatedKeys.isEmpty();
+        final boolean isHardwareAccelerated = canvas.isHardwareAccelerated();
+        // TODO: Confirm if it's really required to draw all keys when hardware acceleration is on.
+        if (drawAllKeys || isHardwareAccelerated) {
+            if (!isHardwareAccelerated && background != null) {
+                // Need to draw keyboard background on {@link #mOffscreenBuffer}.
+                canvas.drawColor(Color.BLACK, PorterDuff.Mode.CLEAR);
+                background.draw(canvas);
+            }
+            // XaulinXs Foundry: fundo customizado (cor sólida e/ou
+            // wallpaper) desenhado por cima do background padrão do tema,
+            // antes das teclas. Se nenhuma customização estiver ativa, este
+            // bloco não altera nada visualmente (comportamento AOSP
+            // original preservado).
+            drawXaulinXsCustomBackground(canvas);
+            // Draw all keys.
+            for (final Key key : keyboard.getSortedKeys()) {
+                onDrawKey(key, canvas, paint);
+            }
+        } else {
+            for (final Key key : mInvalidatedKeys) {
+                if (!keyboard.hasKey(key)) {
+                    continue;
+                }
+                if (background != null) {
+                    // Need to redraw key's background on {@link #mOffscreenBuffer}.
+                    final int x = key.getX() + getPaddingLeft();
+                    final int y = key.getY() + getPaddingTop();
+                    mClipRect.set(x, y, x + key.getWidth(), y + key.getHeight());
+                    canvas.save();
+                    canvas.clipRect(mClipRect);
+                    canvas.drawColor(Color.BLACK, PorterDuff.Mode.CLEAR);
+                    background.draw(canvas);
+                    canvas.restore();
+                }
+                onDrawKey(key, canvas, paint);
+            }
+        }
+
+        mInvalidatedKeys.clear();
+        mInvalidateAllKeys = false;
+    }
+
+    private void onDrawKey(@Nonnull final Key key, @Nonnull final Canvas canvas,
+            @Nonnull final Paint paint) {
+        final int keyDrawX = key.getDrawX() + getPaddingLeft();
+        final int keyDrawY = key.getY() + getPaddingTop();
+        canvas.translate(keyDrawX, keyDrawY);
+
+        final KeyVisualAttributes attr = key.getVisualAttributes();
+        final KeyDrawParams params = mKeyDrawParams.mayCloneAndUpdateParams(key.getHeight(), attr);
+        params.mAnimAlpha = Constants.Color.ALPHA_OPAQUE;
+
+        if (!key.isSpacer()) {
+            final Drawable background = key.selectBackgroundDrawable(
+                    mKeyBackground, mFunctionalKeyBackground, mSpacebarBackground);
+            if (background != null) {
+                onDrawKeyBackground(key, canvas, background);
+            }
+        }
+        onDrawKeyTopVisuals(key, canvas, paint, params);
+
+        canvas.translate(-keyDrawX, -keyDrawY);
+    }
+
+    // Draw key background.
+    protected void onDrawKeyBackground(@Nonnull final Key key, @Nonnull final Canvas canvas,
+            @Nonnull final Drawable background) {
+        final int keyWidth = key.getDrawWidth();
+        final int keyHeight = key.getHeight();
+        final int bgWidth, bgHeight, bgX, bgY;
+        if (key.needsToKeepBackgroundAspectRatio(mDefaultKeyLabelFlags)
+                // HACK: To disable expanding normal/functional key background.
+                && !key.hasCustomActionLabel()) {
+            final int intrinsicWidth = background.getIntrinsicWidth();
+            final int intrinsicHeight = background.getIntrinsicHeight();
+            final float minScale = Math.min(
+                    keyWidth / (float)intrinsicWidth, keyHeight / (float)intrinsicHeight);
+            bgWidth = (int)(intrinsicWidth * minScale);
+            bgHeight = (int)(intrinsicHeight * minScale);
+            bgX = (keyWidth - bgWidth) / 2;
+            bgY = (keyHeight - bgHeight) / 2;
+        } else {
+            final Rect padding = mKeyBackgroundPadding;
+            bgWidth = keyWidth + padding.left + padding.right;
+            bgHeight = keyHeight + padding.top + padding.bottom;
+            bgX = -padding.left;
+            bgY = -padding.top;
+        }
+        final Rect bounds = background.getBounds();
+        if (bgWidth != bounds.right || bgHeight != bounds.bottom) {
+            background.setBounds(0, 0, bgWidth, bgHeight);
+        }
+        // XaulinXs Foundry: aplica a transparência global configurada pelo
+        // usuário ao fundo de CADA tecla individual, não só ao fundo geral
+        // do teclado. Sem isso, o wallpaper/cor de fundo customizados
+        // ficavam cobertos pelo drawable branco/cinza padrão do tema, que
+        // sempre desenha opaco por cima. mutate() evita afetar outras
+        // instâncias que compartilhem o mesmo Drawable em cache.
+        // setAlpha() é sempre seguro de chamar (Drawable.setAlpha nunca
+        // lança exceção), então não precisa de try/catch aqui.
+        final int keyAlpha = CustomizationPrefs.getKeyboardAlpha(getContext());
+        final Drawable mutableBackground = background.mutate();
+        if (keyAlpha != CustomizationPrefs.DEFAULT_ALPHA) {
+            mutableBackground.setAlpha(keyAlpha);
+        } else {
+            mutableBackground.setAlpha(Constants.Color.ALPHA_OPAQUE);
+        }
+        // Tintura da cor customizada da tecla por cima do drawable padrão
+        // do tema (que costuma ser branco/cinza claro). SRC_ATOP preserva
+        // a forma/sombra/bordas do drawable original, só troca a cor de
+        // preenchimento — assim o visual continua com a mesma "pele" do
+        // LatinIME, só com a cor escolhida pelo usuário. clearColorFilter
+        // no else garante que a tecla volte ao normal se a opção for
+        // desativada depois de já ter sido usada (o Drawable é reciclado
+        // entre teclas do mesmo tipo).
+        if (CustomizationPrefs.isKeyboardColorEnabled(getContext())) {
+            mutableBackground.setColorFilter(
+                    CustomizationPrefs.getKeyboardColor(getContext()),
+                    android.graphics.PorterDuff.Mode.SRC_ATOP);
+        } else {
+            mutableBackground.clearColorFilter();
+        }
+        canvas.translate(bgX, bgY);
+        background.draw(canvas);
+        canvas.translate(-bgX, -bgY);
+    }
+
+    // Draw key top visuals.
+    protected void onDrawKeyTopVisuals(@Nonnull final Key key, @Nonnull final Canvas canvas,
+            @Nonnull final Paint paint, @Nonnull final KeyDrawParams params) {
+        final int keyWidth = key.getDrawWidth();
+        final int keyHeight = key.getHeight();
+        final float centerX = keyWidth * 0.5f;
+        final float centerY = keyHeight * 0.5f;
+
+        // Draw key label.
+        final Keyboard keyboard = getKeyboard();
+        final Drawable icon = (keyboard == null) ? null
+                : key.getIcon(keyboard.mIconsSet, params.mAnimAlpha);
+        float labelX = centerX;
+        float labelBaseline = centerY;
+        final String label = key.getLabel();
+        if (label != null) {
+            paint.setTypeface(key.selectTypeface(params));
+            // XaulinXs Foundry: se o usuário importou uma fonte TTF
+            // customizada, ela sobrepõe o typeface do tema para o label
+            // principal da tecla. loadCustomTypeface() nunca lança exceção
+            // e retorna null se não houver fonte ou se o carregamento
+            // falhar, então o typeface original do AOSP permanece como
+            // fallback automático.
+            final Typeface customTypeface = CustomizationPrefs.loadCustomTypeface(getContext());
+            if (customTypeface != null) {
+                paint.setTypeface(customTypeface);
+            }
+            paint.setTextSize(key.selectTextSize(params));
+            final float labelCharHeight = TypefaceUtils.getReferenceCharHeight(paint);
+            final float labelCharWidth = TypefaceUtils.getReferenceCharWidth(paint);
+
+            // Vertical label text alignment.
+            labelBaseline = centerY + labelCharHeight / 2.0f;
+
+            // Horizontal label text alignment
+            if (key.isAlignLabelOffCenter()) {
+                // The label is placed off center of the key. Used mainly on "phone number" layout.
+                labelX = centerX + params.mLabelOffCenterRatio * labelCharWidth;
+                paint.setTextAlign(Align.LEFT);
+            } else {
+                labelX = centerX;
+                paint.setTextAlign(Align.CENTER);
+            }
+            if (key.needsAutoXScale()) {
+                final float ratio = Math.min(1.0f, (keyWidth * MAX_LABEL_RATIO) /
+                        TypefaceUtils.getStringWidth(label, paint));
+                if (key.needsAutoScale()) {
+                    final float autoSize = paint.getTextSize() * ratio;
+                    paint.setTextSize(autoSize);
+                } else {
+                    paint.setTextScaleX(ratio);
+                }
+            }
+
+            if (key.isEnabled()) {
+                paint.setColor(key.selectTextColor(params));
+                // XaulinXs Foundry: cor de texto customizada sobrepõe a cor
+                // do tema quando o usuário ativa essa opção. Fallback
+                // automático para a cor original se a opção estiver
+                // desativada.
+                if (CustomizationPrefs.isKeyTextColorEnabled(getContext())) {
+                    paint.setColor(CustomizationPrefs.getKeyTextColor(getContext()));
+                }
+                // Set a drop shadow for the text if the shadow radius is positive value.
+                if (mKeyTextShadowRadius > 0.0f) {
+                    paint.setShadowLayer(mKeyTextShadowRadius, 0.0f, 0.0f, params.mTextShadowColor);
+                } else {
+                    paint.clearShadowLayer();
+                }
+            } else {
+                // Make label invisible
+                paint.setColor(Color.TRANSPARENT);
+                paint.clearShadowLayer();
+            }
+            blendAlpha(paint, params.mAnimAlpha);
+            canvas.drawText(label, 0, label.length(), labelX, labelBaseline, paint);
+            // Turn off drop shadow and reset x-scale.
+            paint.clearShadowLayer();
+            paint.setTextScaleX(1.0f);
+        }
+
+        // Draw hint label.
+        final String hintLabel = key.getHintLabel();
+        if (hintLabel != null) {
+            paint.setTextSize(key.selectHintTextSize(params));
+            paint.setColor(key.selectHintTextColor(params));
+            // TODO: Should add a way to specify type face for hint letters
+            paint.setTypeface(Typeface.DEFAULT_BOLD);
+            blendAlpha(paint, params.mAnimAlpha);
+            final float labelCharHeight = TypefaceUtils.getReferenceCharHeight(paint);
+            final float labelCharWidth = TypefaceUtils.getReferenceCharWidth(paint);
+            final float hintX, hintBaseline;
+            if (key.hasHintLabel()) {
+                // The hint label is placed just right of the key label. Used mainly on
+                // "phone number" layout.
+                hintX = labelX + params.mHintLabelOffCenterRatio * labelCharWidth;
+                if (key.isAlignHintLabelToBottom(mDefaultKeyLabelFlags)) {
+                    hintBaseline = labelBaseline;
+                } else {
+                    hintBaseline = centerY + labelCharHeight / 2.0f;
+                }
+                paint.setTextAlign(Align.LEFT);
+            } else if (key.hasShiftedLetterHint()) {
+                // The hint label is placed at top-right corner of the key. Used mainly on tablet.
+                hintX = keyWidth - mKeyShiftedLetterHintPadding - labelCharWidth / 2.0f;
+                paint.getFontMetrics(mFontMetrics);
+                hintBaseline = -mFontMetrics.top;
+                paint.setTextAlign(Align.CENTER);
+            } else { // key.hasHintLetter()
+                // The hint letter is placed at top-right corner of the key. Used mainly on phone.
+                final float hintDigitWidth = TypefaceUtils.getReferenceDigitWidth(paint);
+                final float hintLabelWidth = TypefaceUtils.getStringWidth(hintLabel, paint);
+                hintX = keyWidth - mKeyHintLetterPadding
+                        - Math.max(hintDigitWidth, hintLabelWidth) / 2.0f;
+                hintBaseline = -paint.ascent();
+                paint.setTextAlign(Align.CENTER);
+            }
+            final float adjustmentY = params.mHintLabelVerticalAdjustment * labelCharHeight;
+            canvas.drawText(
+                    hintLabel, 0, hintLabel.length(), hintX, hintBaseline + adjustmentY, paint);
+        }
+
+        // Draw key icon.
+        if (label == null && icon != null) {
+            final int iconWidth;
+            if (key.getCode() == Constants.CODE_SPACE && icon instanceof NinePatchDrawable) {
+                iconWidth = (int)(keyWidth * mSpacebarIconWidthRatio);
+            } else {
+                iconWidth = Math.min(icon.getIntrinsicWidth(), keyWidth);
+            }
+            final int iconHeight = icon.getIntrinsicHeight();
+            final int iconY;
+            if (key.isAlignIconToBottom()) {
+                iconY = keyHeight - iconHeight;
+            } else {
+                iconY = (keyHeight - iconHeight) / 2; // Align vertically center.
+            }
+            final int iconX = (keyWidth - iconWidth) / 2; // Align horizontally center.
+            drawIcon(canvas, icon, iconX, iconY, iconWidth, iconHeight);
+        }
+
+        if (key.hasPopupHint() && key.getMoreKeys() != null) {
+            drawKeyPopupHint(key, canvas, paint, params);
+        }
+    }
+
+    // Draw popup hint "..." at the bottom right corner of the key.
+    protected void drawKeyPopupHint(@Nonnull final Key key, @Nonnull final Canvas canvas,
+            @Nonnull final Paint paint, @Nonnull final KeyDrawParams params) {
+        if (TextUtils.isEmpty(mKeyPopupHintLetter)) {
+            return;
+        }
+        final int keyWidth = key.getDrawWidth();
+        final int keyHeight = key.getHeight();
+
+        paint.setTypeface(params.mTypeface);
+        paint.setTextSize(params.mHintLetterSize);
+        paint.setColor(params.mHintLabelColor);
+        paint.setTextAlign(Align.CENTER);
+        final float hintX = keyWidth - mKeyHintLetterPadding
+                - TypefaceUtils.getReferenceCharWidth(paint) / 2.0f;
+        final float hintY = keyHeight - mKeyPopupHintLetterPadding;
+        canvas.drawText(mKeyPopupHintLetter, hintX, hintY, paint);
+    }
+
+    protected static void drawIcon(@Nonnull final Canvas canvas,@Nonnull final Drawable icon,
+            final int x, final int y, final int width, final int height) {
+        canvas.translate(x, y);
+        icon.setBounds(0, 0, width, height);
+        icon.draw(canvas);
+        canvas.translate(-x, -y);
+    }
+
+    public Paint newLabelPaint(@Nullable final Key key) {
+        final Paint paint = new Paint();
+        paint.setAntiAlias(true);
+        if (key == null) {
+            paint.setTypeface(mKeyDrawParams.mTypeface);
+            paint.setTextSize(mKeyDrawParams.mLabelSize);
+        } else {
+            paint.setColor(key.selectTextColor(mKeyDrawParams));
+            paint.setTypeface(key.selectTypeface(mKeyDrawParams));
+            paint.setTextSize(key.selectTextSize(mKeyDrawParams));
+        }
+        return paint;
+    }
+
+    /**
+     * Requests a redraw of the entire keyboard. Calling {@link #invalidate} is not sufficient
+     * because the keyboard renders the keys to an off-screen buffer and an invalidate() only
+     * draws the cached buffer.
+     * @see #invalidateKey(Key)
+     */
+    public void invalidateAllKeys() {
+        mInvalidatedKeys.clear();
+        mInvalidateAllKeys = true;
+        invalidate();
+    }
+
+    /**
+     * Invalidates a key so that it will be redrawn on the next repaint. Use this method if only
+     * one key is changing it's content. Any changes that affect the position or size of the key
+     * may not be honored.
+     * @param key key in the attached {@link Keyboard}.
+     * @see #invalidateAllKeys
+     */
+    public void invalidateKey(@Nullable final Key key) {
+        if (mInvalidateAllKeys || key == null) {
+            return;
+        }
+        mInvalidatedKeys.add(key);
+        final int x = key.getX() + getPaddingLeft();
+        final int y = key.getY() + getPaddingTop();
+        invalidate(x, y, x + key.getWidth(), y + key.getHeight());
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        freeOffscreenBuffer();
+    }
+
+    public void deallocateMemory() {
+        freeOffscreenBuffer();
+    }
+}
