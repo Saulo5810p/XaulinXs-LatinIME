@@ -38,7 +38,10 @@ import com.android.inputmethod.latin.R;
 import com.android.inputmethod.latin.common.Constants;
 import com.android.inputmethod.latin.utils.TypefaceUtils;
 import com.xaulinxs.customization.CustomizationPrefs;
+<<<<<<< HEAD
 import com.xaulinxs.customization.KeyboardTransparency;
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -138,11 +141,14 @@ public class KeyboardView extends View {
     private String mXaulinXsWallpaperUriString;
     private int mXaulinXsWallpaperTargetWidth = -1;
     private int mXaulinXsWallpaperTargetHeight = -1;
+<<<<<<< HEAD
     // Ultimo Drawable de fundo e alpha aplicados por draw() (ver la).
     @Nullable
     private Drawable mXaulinXsLastThemeBackground;
     private int mXaulinXsLastThemeBackgroundAlpha = -1;
     private final Paint mXaulinXsWallpaperPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
     public KeyboardView(final Context context, final AttributeSet attrs) {
         this(context, attrs, R.attr.keyboardViewStyle);
@@ -302,6 +308,7 @@ public class KeyboardView extends View {
 
     // ---- XaulinXs Foundry: customização visual ----
 
+<<<<<<< HEAD
     // XaulinXs Foundry: TRANSPARENCIA INDEPENDENTE DE WALLPAPER/COR. O fundo
     // nativo do tema (9-patch opaco) e desenhado por View.draw() ANTES do
     // onDraw(), por isso o alpha e ajustado aqui, antes do super.draw().
@@ -327,6 +334,8 @@ public class KeyboardView extends View {
         return KeyboardTransparency.getThemeBackgroundAlpha(context);
     }
 
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     /**
      * Garante que {@link #mXaulinXsWallpaperBitmap} reflita a URI e as
      * dimensões atuais do teclado, recarregando do disco apenas quando
@@ -348,6 +357,7 @@ public class KeyboardView extends View {
      */
     private void drawXaulinXsCustomBackground(@Nonnull final Canvas canvas) {
         final Context context = getContext();
+<<<<<<< HEAD
         final int alpha = CustomizationPrefs.getKeyboardAlpha(context);
         // XaulinXs Foundry: TRANSPARENCIA TOTAL - o wallpaper tambem respeita
         // o alpha. Com wallpaper ativo ele SUBSTITUI a camada de cor (antes
@@ -363,16 +373,29 @@ public class KeyboardView extends View {
             canvas.drawBitmap(mXaulinXsWallpaperBitmap, 0f, 0f, mXaulinXsWallpaperPaint);
         } else if (CustomizationPrefs.isKeyboardColorEnabled(context)) {
             final int color = CustomizationPrefs.getKeyboardColor(context);
+=======
+        if (CustomizationPrefs.isKeyboardColorEnabled(context)) {
+            final int color = CustomizationPrefs.getKeyboardColor(context);
+            final int alpha = CustomizationPrefs.getKeyboardAlpha(context);
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
             final Paint bgPaint = mPaint;
             bgPaint.reset();
             bgPaint.setColor(color);
             bgPaint.setAlpha(alpha);
             canvas.drawRect(0, 0, getWidth(), getHeight(), bgPaint);
         }
+<<<<<<< HEAD
         // O fundo nativo do tema (ajustado em draw()) ainda pode estar com o
         // alpha antigo neste frame; pede mais um frame para zera-lo.
         if (drawWallpaper && mXaulinXsLastThemeBackgroundAlpha != 0) {
             invalidate();
+=======
+        if (CustomizationPrefs.isWallpaperEnabled(context)) {
+            updateXaulinXsWallpaperIfNeeded(getWidth(), getHeight());
+            if (mXaulinXsWallpaperBitmap != null) {
+                canvas.drawBitmap(mXaulinXsWallpaperBitmap, 0f, 0f, null);
+            }
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
         }
     }
 

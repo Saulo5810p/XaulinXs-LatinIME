@@ -48,7 +48,10 @@ import com.android.inputmethod.latin.SuggestedWords;
 import com.android.inputmethod.latin.SuggestedWords.SuggestedWordInfo;
 import com.android.inputmethod.latin.common.Constants;
 import com.xaulinxs.customization.CustomizationPrefs;
+<<<<<<< HEAD
 import com.xaulinxs.customization.KeyboardTransparency;
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 import com.android.inputmethod.latin.define.DebugFlags;
 import com.android.inputmethod.latin.settings.Settings;
 import com.android.inputmethod.latin.settings.SettingsValues;
@@ -243,9 +246,12 @@ public final class SuggestionStripView extends RelativeLayout implements OnClick
                     android.graphics.Color.blue(color)));
         } else {
             setBackground(mOriginalBackground);
+<<<<<<< HEAD
             // XaulinXs Foundry: transparencia total tambem sem cor customizada.
             KeyboardTransparency.applyAlphaToBackground(this,
                     CustomizationPrefs.getKeyboardAlpha(getContext()));
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
         }
     }
 

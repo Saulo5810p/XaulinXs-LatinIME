@@ -52,7 +52,10 @@ import com.android.inputmethod.latin.RichInputMethodSubtype;
 import com.android.inputmethod.latin.common.Constants;
 import com.android.inputmethod.latin.utils.ResourceUtils;
 import com.xaulinxs.customization.CustomizationPrefs;
+<<<<<<< HEAD
 import com.xaulinxs.customization.KeyboardTransparency;
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
 /**
  * View class to implement Emoji palettes.
@@ -296,7 +299,10 @@ public final class EmojiPalettesView extends LinearLayout implements OnTabChange
             tintXaulinXsFunctionalKey(mAlphabetKeyLeft, color, alpha);
             tintXaulinXsFunctionalKey(mAlphabetKeyRight, color, alpha);
             tintXaulinXsFunctionalKey(mSpacebar, color, alpha);
+<<<<<<< HEAD
             tintXaulinXsFunctionalKey(mDeleteKey, color, alpha);
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
         } else {
             setBackground(mXaulinXsOriginalRootBackground);
             if (mXaulinXsEmojiTabStrip != null) {
@@ -308,6 +314,7 @@ public final class EmojiPalettesView extends LinearLayout implements OnTabChange
             clearXaulinXsFunctionalKeyTint(mAlphabetKeyLeft);
             clearXaulinXsFunctionalKeyTint(mAlphabetKeyRight);
             clearXaulinXsFunctionalKeyTint(mSpacebar);
+<<<<<<< HEAD
             clearXaulinXsFunctionalKeyTint(mDeleteKey);
             // XaulinXs Foundry: TRANSPARENCIA TOTAL sem cor customizada - os
             // fundos originais do tema tambem recebem o alpha do slider.
@@ -319,6 +326,8 @@ public final class EmojiPalettesView extends LinearLayout implements OnTabChange
             KeyboardTransparency.applyAlphaToBackground(mAlphabetKeyRight, themeAlpha);
             KeyboardTransparency.applyAlphaToBackground(mSpacebar, themeAlpha);
             KeyboardTransparency.applyAlphaToBackground(mDeleteKey, themeAlpha);
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
         }
     }
 

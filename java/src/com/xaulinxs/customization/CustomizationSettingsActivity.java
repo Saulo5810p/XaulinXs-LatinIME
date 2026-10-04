@@ -24,7 +24,10 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+<<<<<<< HEAD
 import android.view.MenuItem;
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -67,23 +70,32 @@ public class CustomizationSettingsActivity extends Activity {
     private TextView mFontCurrentLabel;
     private Button mButtonChooseFont;
     private Button mButtonResetFont;
+<<<<<<< HEAD
     private Button mButtonPosition;
     private TextView mPositionLabel;
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.xaulinxs_customization_activity);
         setTitle(R.string.xaulinxs_customization_title);
+<<<<<<< HEAD
         if (getActionBar() != null) {
             getActionBar().setDisplayHomeAsUpEnabled(true);
         }
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
         bindViews();
         loadCurrentValuesIntoViews();
         wireListeners();
+<<<<<<< HEAD
         mButtonPosition.setOnClickListener(v -> startActivity(
                 new Intent(this, KeyboardPositionActivity.class)));
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     }
 
     private void bindViews() {
@@ -99,8 +111,11 @@ public class CustomizationSettingsActivity extends Activity {
         mFontCurrentLabel = findViewById(R.id.xaulinxs_font_current_label);
         mButtonChooseFont = findViewById(R.id.xaulinxs_button_choose_font);
         mButtonResetFont = findViewById(R.id.xaulinxs_button_reset_font);
+<<<<<<< HEAD
         mButtonPosition = findViewById(R.id.xaulinxs_button_position);
         mPositionLabel = findViewById(R.id.xaulinxs_position_current_label);
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     }
 
     private void loadCurrentValuesIntoViews() {
@@ -219,6 +234,7 @@ public class CustomizationSettingsActivity extends Activity {
     }
 
     @Override
+<<<<<<< HEAD
     protected void onResume() {
         super.onResume();
         // Atualiza o resumo da posicao ao voltar da tela de Posicao.
@@ -240,6 +256,8 @@ public class CustomizationSettingsActivity extends Activity {
     }
 
     @Override
+=======
+>>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     protected void onActivityResult(final int requestCode, final int resultCode,
             final Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
