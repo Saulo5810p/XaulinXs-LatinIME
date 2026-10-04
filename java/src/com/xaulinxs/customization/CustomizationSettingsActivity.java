@@ -22,12 +22,11 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
-<<<<<<< HEAD
 import android.view.MenuItem;
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -40,6 +39,10 @@ import android.widget.Toast;
 import com.android.inputmethod.latin.R;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
  * Tela de personalização visual do teclado XaulinXs: papel de parede, cor
@@ -50,7 +53,8 @@ import java.io.File;
  * necessidade de um botão "salvar" explícito.
  */
 public class CustomizationSettingsActivity extends Activity {
-    private static final int REQUEST_CODE_PICK_WALLPAPER = 4001;
+    private static final int REQUEST_CODE_PICK_WALLPAPER_GALLERY = 4001;
+    private static final int REQUEST_CODE_PICK_WALLPAPER_MEDIA = 4003;
     private static final int REQUEST_CODE_PICK_FONT = 4002;
 
     // Mapeia a SeekBar de escala (passos inteiros 0-70) para o range real
@@ -70,32 +74,23 @@ public class CustomizationSettingsActivity extends Activity {
     private TextView mFontCurrentLabel;
     private Button mButtonChooseFont;
     private Button mButtonResetFont;
-<<<<<<< HEAD
     private Button mButtonPosition;
     private TextView mPositionLabel;
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.xaulinxs_customization_activity);
         setTitle(R.string.xaulinxs_customization_title);
-<<<<<<< HEAD
         if (getActionBar() != null) {
             getActionBar().setDisplayHomeAsUpEnabled(true);
         }
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
         bindViews();
         loadCurrentValuesIntoViews();
         wireListeners();
-<<<<<<< HEAD
         mButtonPosition.setOnClickListener(v -> startActivity(
                 new Intent(this, KeyboardPositionActivity.class)));
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     }
 
     private void bindViews() {
@@ -111,11 +106,8 @@ public class CustomizationSettingsActivity extends Activity {
         mFontCurrentLabel = findViewById(R.id.xaulinxs_font_current_label);
         mButtonChooseFont = findViewById(R.id.xaulinxs_button_choose_font);
         mButtonResetFont = findViewById(R.id.xaulinxs_button_reset_font);
-<<<<<<< HEAD
         mButtonPosition = findViewById(R.id.xaulinxs_button_position);
         mPositionLabel = findViewById(R.id.xaulinxs_position_current_label);
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     }
 
     private void loadCurrentValuesIntoViews() {
@@ -171,17 +163,7 @@ public class CustomizationSettingsActivity extends Activity {
             CustomizationPrefs.setWallpaperEnabled(this, isChecked);
             updateWallpaperPreview();
         });
-        mButtonChooseWallpaper.setOnClickListener(v -> {
-            final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("image/*");
-            try {
-                startActivityForResult(intent, REQUEST_CODE_PICK_WALLPAPER);
-            } catch (final Exception e) {
-                Toast.makeText(this, R.string.xaulinxs_filemanager_import_error,
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
+        mButtonChooseWallpaper.setOnClickListener(v -> showWallpaperSourceDialog());
 
         mSwitchKeyboardColor.setOnCheckedChangeListener((buttonView, isChecked) ->
                 CustomizationPrefs.setKeyboardColorEnabled(this, isChecked));
@@ -234,7 +216,6 @@ public class CustomizationSettingsActivity extends Activity {
     }
 
     @Override
-<<<<<<< HEAD
     protected void onResume() {
         super.onResume();
         // Atualiza o resumo da posicao ao voltar da tela de Posicao.
@@ -256,8 +237,6 @@ public class CustomizationSettingsActivity extends Activity {
     }
 
     @Override
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     protected void onActivityResult(final int requestCode, final int resultCode,
             final Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -265,23 +244,11 @@ public class CustomizationSettingsActivity extends Activity {
             return;
         }
         try {
-            if (requestCode == REQUEST_CODE_PICK_WALLPAPER) {
+            if (requestCode == REQUEST_CODE_PICK_WALLPAPER_GALLERY
+                    || requestCode == REQUEST_CODE_PICK_WALLPAPER_MEDIA) {
                 final Uri uri = data.getData();
                 if (uri != null) {
-                    // Persiste a permissão de leitura da URI entre reboots
-                    // do dispositivo — sem isso, o teclado perderia acesso
-                    // à imagem após o próximo reinício do sistema.
-                    try {
-                        getContentResolver().takePersistableUriPermission(
-                                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    } catch (final SecurityException ignored) {
-                        // Alguns provedores não suportam permissão
-                        // persistente; a imagem ainda funciona nesta sessão.
-                    }
-                    CustomizationPrefs.setWallpaperUri(this, uri);
-                    CustomizationPrefs.setWallpaperEnabled(this, true);
-                    mSwitchWallpaper.setChecked(true);
-                    updateWallpaperPreview();
+                    applyPickedWallpaper(uri);
                 }
             } else if (requestCode == REQUEST_CODE_PICK_FONT) {
                 final String fontPath = data.getStringExtra(
@@ -294,6 +261,137 @@ public class CustomizationSettingsActivity extends Activity {
         } catch (final Exception e) {
             Toast.makeText(this, R.string.xaulinxs_filemanager_import_error, Toast.LENGTH_SHORT)
                     .show();
+        }
+    }
+
+    // ---- Seletor de imagem do wallpaper (sem DocumentsUI) ----
+    // Em vez do seletor de documentos do sistema (DocumentsUI), oferece:
+    //  - Galeria: ACTION_PICK sobre MediaStore.Images (abre o app de galeria).
+    //  - Seletor de midia: Photo Picker do Android (API 33+, ou API 30-32
+    //    com extensao R >= 2).
+
+    private static boolean isPhotoPickerAvailable() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return true;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                return android.os.ext.SdkExtensions.getExtensionVersion(
+                        Build.VERSION_CODES.R) >= 2;
+            } catch (final Throwable t) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private void showWallpaperSourceDialog() {
+        final boolean photoPicker = isPhotoPickerAvailable();
+        final String[] options = photoPicker
+                ? new String[] {
+                        getString(R.string.xaulinxs_wallpaper_source_gallery),
+                        getString(R.string.xaulinxs_wallpaper_source_media) }
+                : new String[] { getString(R.string.xaulinxs_wallpaper_source_gallery) };
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.xaulinxs_wallpaper_source_title)
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        launchGalleryPicker(photoPicker);
+                    } else {
+                        launchMediaPicker();
+                    }
+                })
+                .show();
+    }
+
+    private void launchGalleryPicker(final boolean fallbackToMediaPicker) {
+        try {
+            final Intent intent = new Intent(Intent.ACTION_PICK,
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            intent.setType("image/*");
+            startActivityForResult(intent, REQUEST_CODE_PICK_WALLPAPER_GALLERY);
+        } catch (final Exception e) {
+            if (fallbackToMediaPicker) {
+                launchMediaPicker();
+            } else {
+                Toast.makeText(this, R.string.xaulinxs_filemanager_import_error,
+                        Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void launchMediaPicker() {
+        try {
+            final Intent intent = new Intent("android.provider.action.PICK_IMAGES");
+            intent.setType("image/*");
+            startActivityForResult(intent, REQUEST_CODE_PICK_WALLPAPER_MEDIA);
+        } catch (final Exception e) {
+            Toast.makeText(this, R.string.xaulinxs_filemanager_import_error,
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Copia a imagem escolhida para o armazenamento interno do app e usa essa
+     * copia como wallpaper. Assim ela nao depende da URI do seletor (que pode
+     * expirar apos reboot ou nao suportar permissao persistente).
+     */
+    private void applyPickedWallpaper(final Uri picked) {
+        Uri toStore = picked;
+        final Uri copied = copyWallpaperToInternalStorage(picked);
+        if (copied != null) {
+            toStore = copied;
+        } else {
+            try {
+                getContentResolver().takePersistableUriPermission(
+                        picked, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (final Exception ignored) {
+                // Sem permissao persistente: a imagem vale nesta sessao.
+            }
+        }
+        CustomizationPrefs.setWallpaperUri(this, toStore);
+        CustomizationPrefs.setWallpaperEnabled(this, true);
+        mSwitchWallpaper.setChecked(true);
+        updateWallpaperPreview();
+    }
+
+    private Uri copyWallpaperToInternalStorage(final Uri source) {
+        File dest = null;
+        try {
+            final File dir = new File(getFilesDir(), "xaulinxs_wallpaper");
+            if (!dir.exists() && !dir.mkdirs()) {
+                return null;
+            }
+            final File[] previous = dir.listFiles();
+            // Nome unico: o teclado faz cache por URI, entao uma nova imagem
+            // precisa de uma URI diferente para ser recarregada.
+            dest = new File(dir, "wallpaper_" + System.currentTimeMillis() + ".img");
+            try (InputStream in = getContentResolver().openInputStream(source);
+                 OutputStream out = new FileOutputStream(dest)) {
+                if (in == null) {
+                    return null;
+                }
+                final byte[] buffer = new byte[8192];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+            }
+            if (previous != null) {
+                for (final File old : previous) {
+                    if (!old.equals(dest)) {
+                        //noinspection ResultOfMethodCallIgnored
+                        old.delete();
+                    }
+                }
+            }
+            return Uri.fromFile(dest);
+        } catch (final IOException | SecurityException e) {
+            if (dest != null) {
+                //noinspection ResultOfMethodCallIgnored
+                dest.delete();
+            }
+            return null;
         }
     }
 

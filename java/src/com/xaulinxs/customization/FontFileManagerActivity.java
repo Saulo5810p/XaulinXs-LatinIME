@@ -20,10 +20,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
-<<<<<<< HEAD
 import android.view.MenuItem;
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -78,12 +75,9 @@ public class FontFileManagerActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.xaulinxs_filemanager_activity);
         setTitle(R.string.xaulinxs_filemanager_title);
-<<<<<<< HEAD
         if (getActionBar() != null) {
             getActionBar().setDisplayHomeAsUpEnabled(true);
         }
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
         mCurrentPathLabel = findViewById(R.id.xaulinxs_fm_current_path);
         mEmptyLabel = findViewById(R.id.xaulinxs_fm_empty_label);
@@ -144,7 +138,6 @@ public class FontFileManagerActivity extends Activity {
         }
     }
 
-<<<<<<< HEAD
     // XaulinXs Foundry: Voltar sobe uma pasta por vez; so sai do gerenciador
     // quando ja esta na raiz do armazenamento.
     @Override
@@ -169,8 +162,6 @@ public class FontFileManagerActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     private void navigateUp() {
         if (mCurrentDir == null) {
             return;

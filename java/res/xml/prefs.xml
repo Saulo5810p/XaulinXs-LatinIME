@@ -42,4 +42,13 @@
         android:fragment="com.android.inputmethod.latin.settings.AdvancedSettingsFragment"
         android:title="@string/settings_screen_advanced"
         android:key="screen_advanced" />
+    <!-- XaulinXs Foundry: tela de Backup (criar / exportar / restaurar). -->
+    <Preference
+        android:key="pref_xaulinxs_backup"
+        android:title="@string/xaulinxs_backup_pref_title"
+        android:summary="@string/xaulinxs_backup_pref_summary">
+        <intent
+            android:targetPackage="com.android.inputmethod.latin"
+            android:targetClass="com.xaulinxs.customization.BackupActivity" />
+    </Preference>
 </PreferenceScreen>

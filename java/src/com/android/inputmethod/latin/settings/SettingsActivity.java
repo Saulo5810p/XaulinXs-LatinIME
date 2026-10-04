@@ -59,7 +59,6 @@ public final class SettingsActivity extends PreferenceActivity
     @Override
     public boolean onOptionsItemSelected(final MenuItem item) {
         if (mShowHomeAsUp && item.getItemId() == android.R.id.home) {
-<<<<<<< HEAD
             // XaulinXs Foundry: a seta de voltar dentro de uma sub-tela volta so
             // uma tela. Antes chamava finish() e fechava as Configuracoes
             // inteiras (e, por consequencia, o app).
@@ -68,9 +67,6 @@ public final class SettingsActivity extends PreferenceActivity
             } else {
                 finish();
             }
-=======
-            finish();
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
             return true;
         }
         return super.onOptionsItemSelected(item);

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- XaulinXs Foundry: strings da tela de Backup e do seletor de wallpaper. -->
+<resources>
+    <string name="xaulinxs_backup_pref_title">Backup das configurações</string>
+    <string name="xaulinxs_backup_pref_summary">Criar, exportar e restaurar suas personalizações</string>
+    <string name="xaulinxs_backup_title">Backup</string>
+    <string name="xaulinxs_backup_intro">Salva cores, posição do teclado, transparência, tamanho e as demais configurações do app em um arquivo .txt. Papel de parede e fonte TTF não entram no backup.</string>
+    <string name="xaulinxs_backup_create">Criar backup</string>
+    <string name="xaulinxs_backup_export">Exportar backup</string>
+    <string name="xaulinxs_backup_restore">Restaurar backup</string>
+    <string name="xaulinxs_backup_last_none">Nenhum backup criado ainda</string>
+    <string name="xaulinxs_backup_last_format">Último backup: %1$s</string>
+    <string name="xaulinxs_backup_created">Backup criado (%1$d configurações)</string>
+    <string name="xaulinxs_backup_create_error">Não foi possível criar o backup</string>
+    <string name="xaulinxs_backup_exported">Backup exportado para %1$s</string>
+    <string name="xaulinxs_backup_export_error">Não foi possível salvar o arquivo</string>
+    <string name="xaulinxs_backup_restore_confirm_title">Restaurar backup?</string>
+    <string name="xaulinxs_backup_restore_confirm_message">As configurações atuais serão substituídas pelas do arquivo. Papel de parede e fonte TTF não serão alterados.</string>
+    <string name="xaulinxs_backup_restore_confirm_yes">Restaurar</string>
+    <string name="xaulinxs_backup_restore_done">Backup restaurado (%1$d configurações aplicadas)</string>
+    <string name="xaulinxs_backup_restore_invalid">Arquivo inválido: não é um backup do XaulinXs LatinIME</string>
+    <string name="xaulinxs_backup_restore_error">Não foi possível ler o arquivo</string>
+    <string name="xaulinxs_backup_fm_save_title">Exportar backup</string>
+    <string name="xaulinxs_backup_fm_open_title">Restaurar backup</string>
+    <string name="xaulinxs_backup_fm_name_hint">Nome do arquivo</string>
+    <string name="xaulinxs_backup_fm_save_button">Salvar</string>
+    <string name="xaulinxs_backup_fm_invalid_name">Nome de arquivo inválido</string>
+    <string name="xaulinxs_backup_fm_not_writable">Sem permissão para gravar nesta pasta</string>
+    <string name="xaulinxs_backup_fm_overwrite_title">Substituir arquivo?</string>
+    <string name="xaulinxs_backup_fm_overwrite_message">%1$s já existe nesta pasta.</string>
+    <string name="xaulinxs_backup_fm_overwrite_yes">Substituir</string>
+    <string name="xaulinxs_backup_fm_internal_entry">📦 Backup interno (%1$s)</string>
+    <string name="xaulinxs_backup_fm_empty">Nenhuma pasta ou arquivo .txt aqui</string>
+    <string name="xaulinxs_wallpaper_source_title">Escolher imagem de</string>
+    <string name="xaulinxs_wallpaper_source_gallery">Galeria</string>
+    <string name="xaulinxs_wallpaper_source_media">Seletor de mídia</string>
+</resources>

@@ -182,13 +182,10 @@
              android:theme="@style/platformSettingsTheme"
              android:label="@string/xaulinxs_filemanager_title"
              android:exported="false"/>
-<<<<<<< HEAD
         <activity android:name="com.xaulinxs.customization.KeyboardPositionActivity"
              android:theme="@style/platformSettingsTheme"
              android:label="@string/xaulinxs_position_title"
              android:exported="false"/>
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
         <!-- XaulinXs Foundry: Activity invisível usada apenas para
              solicitar a permissão de microfone em nome do serviço de
              teclado (InputMethodService não pode chamar requestPermissions
@@ -299,5 +296,14 @@
              android:multiprocess="false"
              android:label="@string/dictionary_provider_name">
         </provider>
+            <!-- XaulinXs Foundry: tela de Backup e file manager proprio dos backups. -->
+        <activity android:name="com.xaulinxs.customization.BackupActivity"
+             android:theme="@style/platformSettingsTheme"
+             android:label="@string/xaulinxs_backup_title"
+             android:exported="false"/>
+        <activity android:name="com.xaulinxs.customization.BackupFileManagerActivity"
+             android:theme="@style/platformSettingsTheme"
+             android:label="@string/xaulinxs_backup_title"
+             android:exported="false"/>
     </application>
 </manifest>

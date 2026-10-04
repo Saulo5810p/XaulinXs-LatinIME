@@ -629,7 +629,6 @@ Tip: You can download and remove dictionaries by going to &lt;b>Languages&#160;&
     <string name="xaulinxs_clipboard_image_label">[Imagem copiada]</string>
     <string name="xaulinxs_clipboard_unsupported_label">[Conteúdo não suportado para colar aqui]</string>
     <string name="xaulinxs_clipboard_key_content_desc">Área de transferência</string>
-<<<<<<< HEAD
 
     <!-- XaulinXs Foundry: posição vertical do teclado -->
     <string name="xaulinxs_section_position">Posição do teclado</string>
@@ -648,6 +647,4 @@ Tip: You can download and remove dictionaries by going to &lt;b>Languages&#160;&
     <string name="xaulinxs_position_discard_no">Continuar editando</string>
     <string name="xaulinxs_position_mock_label">Teclado</string>
     <string name="xaulinxs_position_stage_label">Tela do app</string>
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 </resources>

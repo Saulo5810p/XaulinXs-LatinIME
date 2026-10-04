@@ -90,11 +90,7 @@ public class ClipboardPanelView extends LinearLayout {
                     android.graphics.Color.green(color),
                     android.graphics.Color.blue(color));
         } else {
-<<<<<<< HEAD
             backgroundColor = (CustomizationPrefs.getKeyboardAlpha(context) << 24) | 0x00F5F5F5;
-=======
-            backgroundColor = 0xFFF5F5F5; // cinza-claro neutro padrão
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
         }
         setBackgroundColor(backgroundColor);
     }

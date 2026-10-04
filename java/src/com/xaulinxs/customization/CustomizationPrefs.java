@@ -54,11 +54,8 @@ public final class CustomizationPrefs {
     public static final String KEY_KEYBOARD_ALPHA = "xaulinxs_keyboard_alpha";
     public static final String KEY_KEYBOARD_SCALE = "xaulinxs_keyboard_scale";
     public static final String KEY_CUSTOM_FONT_PATH = "xaulinxs_custom_font_path";
-<<<<<<< HEAD
     public static final String KEY_KEYBOARD_OFFSET_DP = "xaulinxs_keyboard_offset_dp";
     public static final float MAX_OFFSET_DP = 1000f;
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
     // Chaves nativas do AOSP LatinIME (DebugSettings/Settings.java) para
     // escala de altura do teclado — REAPROVEITADAS aqui em vez de duplicar
@@ -302,7 +299,6 @@ public final class CustomizationPrefs {
         }
     }
 
-<<<<<<< HEAD
     // ---- Posicao vertical do teclado (elevacao em dp acima da base) ----
 
     public static float getKeyboardOffsetDp(final Context context) {
@@ -327,8 +323,6 @@ public final class CustomizationPrefs {
         }
     }
 
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     // ---- Fonte customizada (TTF) ----
     // NOTA: assim como o wallpaper, a fonte é copiada para
     // filesDir/xaulinxs_fonts/ (armazenamento interno do PRÓPRIO app, não

@@ -101,18 +101,12 @@ import com.android.inputmethod.latin.utils.StatsUtils;
 import com.android.inputmethod.latin.utils.StatsUtilsManager;
 import com.android.inputmethod.latin.utils.SubtypeLocaleUtils;
 import com.android.inputmethod.latin.utils.ViewLayoutUtils;
-<<<<<<< HEAD
 import com.android.inputmethod.latin.utils.ResourceUtils;
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 import com.xaulinxs.clipboard.ClipboardHistoryItem;
 import com.xaulinxs.clipboard.ClipboardHistoryManager;
 import com.xaulinxs.clipboard.ClipboardPanelView;
 import com.xaulinxs.clipboard.ClipboardPopupController;
-<<<<<<< HEAD
 import com.xaulinxs.customization.CustomizationPrefs;
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 import com.xaulinxs.voice.VoiceInputManager;
 import com.xaulinxs.voice.VoiceInputOverlayView;
 import com.xaulinxs.voice.VoicePermissionActivity;
@@ -1077,12 +1071,9 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     @SuppressWarnings("deprecation")
     void onStartInputViewInternal(final EditorInfo editorInfo, final boolean restarting) {
         super.onStartInputView(editorInfo, restarting);
-<<<<<<< HEAD
         // XaulinXs Foundry: reaplica a posicao vertical salva a cada vez que o
         // teclado aparece (a tela de Posicao grava a preferencia).
         syncXaulinXsKeyboardOffset();
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
 
         // XaulinXs Foundry: com a arquitetura de PopupWindow (voz/clipboard
         // nunca substituem mInputView), fecha qualquer popup ainda aberto
@@ -1439,39 +1430,28 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         final int suggestionsHeight = (!mKeyboardSwitcher.isShowingEmojiPalettes()
                 && mSuggestionStripView.getVisibility() == View.VISIBLE)
                 ? mSuggestionStripView.getHeight() : 0;
-<<<<<<< HEAD
         // XaulinXs Foundry: a elevacao (padding inferior do InputView) sobe o
         // teclado; a area tocavel e os insets acompanham.
         final int xaulinXsOffset = mInputView.getPaddingBottom();
         final int visibleTopY = inputHeight - xaulinXsOffset
                 - visibleKeyboardView.getHeight() - suggestionsHeight;
-=======
-        final int visibleTopY = inputHeight - visibleKeyboardView.getHeight() - suggestionsHeight;
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
         mSuggestionStripView.setMoreSuggestionsHeight(visibleTopY);
         // Need to set expanded touchable region only if a keyboard view is being shown.
         if (visibleKeyboardView.isShown()) {
             final int touchLeft = 0;
             final int touchTop = mKeyboardSwitcher.isShowingMoreKeysPanel() ? 0 : visibleTopY;
             final int touchRight = visibleKeyboardView.getWidth();
-<<<<<<< HEAD
             final int touchBottom = inputHeight - xaulinXsOffset;
-=======
-            final int touchBottom = inputHeight;
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
             outInsets.touchableInsets = InputMethodService.Insets.TOUCHABLE_INSETS_REGION;
             outInsets.touchableRegion.set(touchLeft, touchTop, touchRight, touchBottom);
         }
         outInsets.contentTopInsets = visibleTopY;
         outInsets.visibleTopInsets = visibleTopY;
         mInsetsUpdater.setInsets(outInsets);
-<<<<<<< HEAD
         // XaulinXs Foundry: reajusta a elevacao se a area disponivel mudou.
         if (computeXaulinXsTargetOffsetPx() != mInputView.getPaddingBottom()) {
             mInputView.post(mXaulinXsSyncOffsetRunnable);
         }
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
     }
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
@@ -1558,7 +1538,6 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
             ViewLayoutUtils.updateLayoutHeightOf(inputArea, layoutHeight);
             ViewLayoutUtils.updateLayoutGravityOf(inputArea, Gravity.BOTTOM);
             ViewLayoutUtils.updateLayoutHeightOf(mInputView, layoutHeight);
-<<<<<<< HEAD
             syncXaulinXsKeyboardOffset();
         }
     }
@@ -1609,8 +1588,6 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         if (inputView.getPaddingBottom() != target) {
             inputView.setPadding(inputView.getPaddingLeft(), inputView.getPaddingTop(),
                     inputView.getPaddingRight(), target);
-=======
->>>>>>> e890f0b26acd15ac578d9731ec2a0f0813273d1d
         }
     }
 
